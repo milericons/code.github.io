@@ -1,3 +1,9 @@
+.wysing,
+.wysing *,
+.wysing *::before,
+.wysing *::after {
+    box-sizing: border-box;
+}
 .wysing {
     --paper: #fffefa;
     --line: #e6e2da;
@@ -382,7 +388,6 @@
 .wysing .tool__letter--color {
     font-size: 14px;
     font-weight: 700;
-    transform: translateY(-3px);
 }
 .wysing .tool__swatch {
     position: absolute;
