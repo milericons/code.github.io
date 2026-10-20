@@ -1,18 +1,21 @@
 :root {
-    --bg: #f3f2ee;
-    --bg-soft: #efece6;
-    --surface: #fbfaf7;
+    color-scheme: dark;
+    --bg: #0e1013;
+    --bg-soft: #1b1f24;
+    --surface: #15181c;
     --paper: #fffefa;
     --line: #e6e2da;
     --line-strong: #d9d4ca;
-    --ink: #2f3237;
-    --ink-soft: #545a61;
-    --muted: #8a8e94;
+    --chrome-line: #24282e;
+    --ink: #eceef1;
+    --ink-soft: #b9bec5;
+    --muted: #858b94;
     --accent: #6f7d8c;
     --accent-strong: #5b6977;
-    --accent-soft: #e9edf1;
-    --accent-softer: #f1f4f6;
-    --danger: #a9736d;
+    --accent-soft: #2b3540;
+    --accent-softer: #1f252b;
+    --active-ink: #a9c0d6;
+    --danger: #cf9189;
     --radius: 10px;
     --topbar-h: 62px;
     --toolbar-h: 52px;
@@ -67,7 +70,7 @@ button {
     gap: 20px;
     padding: 0 18px;
     background: var(--surface);
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--chrome-line);
     position: relative;
     z-index: 20;
 }
@@ -85,9 +88,9 @@ button {
     place-items: center;
     border-radius: 11px;
     background: var(--accent-soft);
-    color: var(--accent-strong);
+    color: var(--active-ink);
     font-size: 19px;
-    box-shadow: inset 0 0 0 1px rgba(111, 125, 140, 0.12);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 .brand__text {
     display: flex;
@@ -121,9 +124,9 @@ button {
     transition: background 0.15s ease, border-color 0.15s ease;
 }
 .doc:focus-within {
-    background: var(--paper);
-    border-color: var(--accent-soft);
-    box-shadow: 0 0 0 3px rgba(111, 125, 140, 0.08);
+    background: var(--bg-soft);
+    border-color: #39434d;
+    box-shadow: 0 0 0 3px rgba(169, 192, 214, 0.12);
 }
 .doc__icon {
     flex: 0 0 auto;
@@ -150,7 +153,7 @@ button {
     align-items: center;
     gap: 4px;
     padding-left: 10px;
-    border-left: 1px solid var(--line-strong);
+    border-left: 1px solid var(--chrome-line);
     color: var(--muted);
     font-size: 11px;
     font-weight: 500;
@@ -199,7 +202,7 @@ button {
 }
 .btn:focus-visible,
 .tool:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--active-ink);
     outline-offset: 2px;
 }
 .btn--icon {
@@ -210,17 +213,17 @@ button {
     border-color: transparent;
 }
 .btn--ghost:hover {
-    border-color: var(--line);
+    border-color: var(--chrome-line);
 }
 .btn--ghost.is-active {
     background: var(--accent-soft);
-    color: var(--accent-strong);
+    color: var(--active-ink);
     border-color: transparent;
 }
 .btn--primary {
     background: var(--accent);
     color: #fdfcfa;
-    box-shadow: 0 1px 2px rgba(63, 72, 82, 0.16);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .btn--primary:hover {
     background: var(--accent-strong);
@@ -228,11 +231,11 @@ button {
 }
 .btn--soft {
     background: var(--accent-softer);
-    color: var(--accent-strong);
+    color: var(--active-ink);
 }
 .btn--soft:hover {
     background: var(--accent-soft);
-    color: var(--accent-strong);
+    color: var(--active-ink);
 }
 .btn--wide {
     width: 100%;
@@ -246,7 +249,7 @@ button {
     gap: 4px;
     padding: 0 16px;
     background: var(--surface);
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--chrome-line);
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: thin;
@@ -257,7 +260,7 @@ button {
     height: 4px;
 }
 .toolbar::-webkit-scrollbar-thumb {
-    background: var(--line-strong);
+    background: var(--chrome-line);
     border-radius: 4px;
 }
 .toolbar__group {
@@ -271,7 +274,7 @@ button {
     width: 1px;
     height: 22px;
     margin: 0 7px;
-    background: var(--line);
+    background: var(--chrome-line);
 }
 .toolbar__spacer {
     flex: 1 1 auto;
@@ -305,10 +308,10 @@ button {
 }
 .tool.is-active {
     background: var(--accent-soft);
-    color: var(--accent-strong);
+    color: var(--active-ink);
 }
 .tool--danger:hover {
-    background: #f4e9e7;
+    background: #2c211f;
     color: var(--danger);
 }
 .tool__letter {
@@ -357,7 +360,7 @@ button {
     border-radius: 2px;
     transform: translateX(-50%);
     background: #3c4650;
-    box-shadow: 0 0 0 1px rgba(47, 50, 55, 0.08);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 .tool__swatch--light {
     background: #d7dcc9;
@@ -388,7 +391,7 @@ button {
     background: var(--bg-soft);
 }
 .select:focus-visible {
-    border-color: var(--accent-soft);
+    border-color: #39434d;
     background: var(--accent-softer);
 }
 .select__caret {
@@ -407,10 +410,10 @@ button {
     left: 0;
     width: 214px;
     padding: 12px;
-    background: var(--paper);
-    border: 1px solid var(--line);
+    background: var(--surface);
+    border: 1px solid var(--chrome-line);
     border-radius: 12px;
-    box-shadow: 0 16px 38px -18px rgba(44, 46, 42, 0.32), 0 2px 6px rgba(44, 46, 42, 0.05);
+    box-shadow: 0 20px 44px -20px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.2);
     z-index: 60;
 }
 .popover__title {
@@ -429,7 +432,7 @@ button {
 .swatch {
     width: 100%;
     aspect-ratio: 1;
-    border: 1px solid rgba(47, 50, 55, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 7px;
     background: var(--c);
     cursor: pointer;
@@ -438,17 +441,17 @@ button {
 }
 .swatch:hover {
     transform: scale(1.12);
-    box-shadow: 0 2px 8px rgba(44, 46, 42, 0.18);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 .swatch:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--active-ink);
     outline-offset: 2px;
 }
 .popover__clear {
     width: 100%;
     margin-top: 10px;
     padding: 7px 8px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--chrome-line);
     border-radius: 7px;
     background: var(--surface);
     color: var(--ink-soft);
@@ -607,7 +610,7 @@ button {
     gap: 16px;
     padding: 0 18px;
     background: var(--surface);
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--chrome-line);
     color: var(--muted);
     font-size: 11px;
     font-weight: 500;
@@ -630,14 +633,14 @@ button {
 }
 .statusbar__item .miller-icon {
     font-size: 13px;
-    color: #9a9d9a;
+    color: #6b7076;
 }
 .statusbar__dot {
     width: 3px;
     height: 3px;
     flex: 0 0 auto;
     border-radius: 50%;
-    background: var(--line-strong);
+    background: var(--chrome-line);
 }
 .modal-layer {
     position: fixed;
@@ -646,7 +649,7 @@ button {
     display: grid;
     place-items: center;
     padding: 20px;
-    background: rgba(47, 49, 45, 0.26);
+    background: rgba(0, 0, 0, 0.55);
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
 }
@@ -656,10 +659,10 @@ button {
 .modal {
     width: min(420px, 100%);
     padding: 20px;
-    background: var(--paper);
-    border: 1px solid var(--line);
+    background: var(--surface);
+    border: 1px solid var(--chrome-line);
     border-radius: 16px;
-    box-shadow: 0 30px 70px -30px rgba(36, 38, 34, 0.45);
+    box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.5);
     animation: modal-in 0.18s ease both;
 }
 @keyframes modal-in {
@@ -692,7 +695,7 @@ button {
     flex: 0 0 auto;
     border-radius: 10px;
     background: var(--accent-soft);
-    color: var(--accent-strong);
+    color: var(--active-ink);
     font-size: 17px;
 }
 .modal__head h2 {
@@ -720,8 +723,8 @@ button {
     width: 100%;
     height: 38px;
     padding: 0 11px;
-    background: var(--surface);
-    border: 1px solid var(--line);
+    background: var(--bg-soft);
+    border: 1px solid var(--chrome-line);
     border-radius: 8px;
     outline: none;
     color: var(--ink);
@@ -729,12 +732,12 @@ button {
     transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .field input::placeholder {
-    color: #b0b2af;
+    color: #565b61;
 }
 .field input:focus {
-    background: var(--paper);
-    border-color: #c3ccd4;
-    box-shadow: 0 0 0 3px var(--accent-softer);
+    background: var(--bg-soft);
+    border-color: #39434d;
+    box-shadow: 0 0 0 3px rgba(169, 192, 214, 0.12);
 }
 .modal__divider {
     display: flex;
@@ -751,7 +754,7 @@ button {
     content: "";
     flex: 1;
     height: 1px;
-    background: var(--line);
+    background: var(--chrome-line);
 }
 .modal__foot {
     display: flex;
@@ -769,10 +772,10 @@ button {
     gap: 2px;
     max-width: calc(100vw - 16px);
     padding: 6px;
-    background: var(--paper);
-    border: 1px solid var(--line);
+    background: var(--surface);
+    border: 1px solid var(--chrome-line);
     border-radius: 11px;
-    box-shadow: 0 16px 40px -18px rgba(44, 46, 42, 0.34), 0 2px 6px rgba(44, 46, 42, 0.06);
+    box-shadow: 0 16px 40px -18px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 .image-bar[hidden] {
     display: none;
@@ -795,7 +798,7 @@ button {
     width: 1px;
     height: 20px;
     margin: 0 5px;
-    background: var(--line);
+    background: var(--chrome-line);
 }
 .image-bar__size {
     position: relative;
@@ -822,7 +825,7 @@ button {
     background: var(--bg-soft);
 }
 .image-bar__select:focus-visible {
-    border-color: var(--accent-soft);
+    border-color: #39434d;
     background: var(--accent-softer);
 }
 .image-bar__size .miller-icon {
@@ -842,12 +845,12 @@ button {
     gap: 8px;
     max-width: min(90vw, 420px);
     padding: 10px 15px;
-    background: #3a3f3c;
+    background: #454c54;
     border-radius: 9px;
-    color: #fbfaf7;
+    color: #f4f6f8;
     font-size: 12.5px;
     font-weight: 500;
-    box-shadow: 0 12px 30px -12px rgba(30, 32, 29, 0.5);
+    box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.5);
     opacity: 0;
     transform: translate(-50%, 8px);
     pointer-events: none;
