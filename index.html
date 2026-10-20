@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f3f2ee">
+    <meta name="description" content="Wysing — un editor de texto ligero, limpio y enfocado.">
+    <title>Wysing — Editor de texto</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%236f7d8c'/%3E%3Cpath d='M44 18l3 3-22 22-4 1 1-4 22-22z' fill='%23fffefa'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="index.css">
+    <script src="https://milericons.github.io/outline.github.io/public/miller-icons.js" defer></script>
+    <script src="index.js" defer></script>
+</head>
+<body>
+    <div class="app" id="app">
+        <header class="topbar">
+            <div class="brand">
+                <span class="brand__mark">
+                    <span class="miller-icon" data-icon="pencil" aria-hidden="true"></span>
+                </span>
+                <span class="brand__text">
+                    <span class="brand__name">Wysing</span>
+                    <span class="brand__tag">Editor de texto</span>
+                </span>
+            </div>
+
+            <div class="doc">
+                <span class="miller-icon doc__icon" data-icon="file_text" aria-hidden="true"></span>
+                <input class="doc__title" id="docTitle" type="text" value="Documento sin título" aria-label="Título del documento" spellcheck="false">
+                <span class="doc__state" id="saveState">
+                    <span class="miller-icon" data-icon="check" aria-hidden="true"></span>
+                    <span id="saveLabel">Guardado</span>
+                </span>
+            </div>
+
+            <div class="topbar__actions">
+                <button class="btn btn--icon" id="newBtn" type="button" title="Nuevo documento" aria-label="Nuevo documento">
+                    <span class="miller-icon" data-icon="file_add" aria-hidden="true"></span>
+                </button>
+                <button class="btn btn--ghost" id="previewBtn" type="button" aria-pressed="false" title="Vista previa de lectura">
+                    <span class="miller-icon" data-icon="eye" aria-hidden="true"></span>
+                    <span class="btn__label">Vista previa</span>
+                </button>
+                <button class="btn btn--ghost" id="copyBtn" type="button" title="Copiar HTML al portapapeles">
+                    <span class="miller-icon" data-icon="clipboard" aria-hidden="true"></span>
+                    <span class="btn__label">Copiar HTML</span>
+                </button>
+                <button class="btn btn--primary" id="downloadBtn" type="button" title="Descargar como archivo HTML">
+                    <span class="miller-icon" data-icon="download" aria-hidden="true"></span>
+                    <span class="btn__label">Descargar</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="toolbar" id="toolbar" role="toolbar" aria-label="Herramientas de formato">
+            <div class="toolbar__group">
+                <button class="tool" type="button" data-cmd="undo" title="Deshacer (Ctrl+Z)" aria-label="Deshacer">
+                    <span class="miller-icon" data-icon="arrow_left" aria-hidden="true"></span>
+                </button>
+                <button class="tool" type="button" data-cmd="redo" title="Rehacer (Ctrl+Y)" aria-label="Rehacer">
+                    <span class="miller-icon" data-icon="arrow_right" aria-hidden="true"></span>
+                </button>
+            </div>
+
+            <span class="toolbar__sep" aria-hidden="true"></span>
+
+            <div class="toolbar__group">
+                <span class="miller-icon toolbar__lead" data-icon="text_block" aria-hidden="true"></span>
+                <div class="select-wrap">
+                    <select class="select" id="blockSelect" aria-label="Estilo de bloque">
+                        <option value="p">Párrafo</option>
+                        <option value="h1">Título 1</option>
+                        <option value="h2">Título 2</option>
+                        <option value="h3">Título 3</option>
+                        <option value="blockquote">Cita</option>
+                        <option value="pre">Código</option>
+                    </select>
+                    <span class="miller-icon select__caret" data-icon="arrow_down" aria-hidden="true"></span>
+                </div>
+            </div>
+
+            <span class="toolbar__sep" aria-hidden="true"></span>
+
+            <div class="toolbar__group">
+                <button class="tool" type="button" data-cmd="bold" title="Negrita (Ctrl+B)" aria-label="Negrita">
+                    <span class="tool__letter tool__letter--bold">B</span>
+                </button>
+                <button class="tool" type="button" data-cmd="italic" title="Cursiva (Ctrl+I)" aria-label="Cursiva">
+                    <span class="tool__letter tool__letter--italic">I</span>
+                </button>
+                <button class="tool" type="button" data-cmd="underline" title="Subrayado (Ctrl+U)" aria-label="Subrayado">
+                    <span class="tool__letter tool__letter--underline">U</span>
+                </button>
+                <button class="tool" type="button" data-cmd="strikeThrough" title="Tachado" aria-label="Tachado">
+                    <span class="tool__letter tool__letter--strike">S</span>
+                </button>
+            </div>
+
+            <span class="toolbar__sep" aria-hidden="true"></span>
+
+            <div class="toolbar__group">
+                <div class="tool-wrap">
+                    <button class="tool" id="textColorBtn" type="button" title="Color de texto" aria-label="Color de texto" aria-haspopup="true" aria-expanded="false">
+                        <span class="tool__letter tool__letter--color">A</span>
+                        <span class="tool__swatch" id="textColorSwatch" aria-hidden="true"></span>
+                    </button>
+                    <div class="popover" id="textColorPop" hidden>
+                        <p class="popover__title">Color de texto</p>
+                        <div class="swatches" id="textColorSwatches"></div>
+                    </div>
+                </div>
+
+                <div class="tool-wrap">
+                    <button class="tool" id="highlightBtn" type="button" title="Resaltado" aria-label="Resaltado" aria-haspopup="true" aria-expanded="false">
+                        <span class="miller-icon" data-icon="brush" aria-hidden="true"></span>
+                        <span class="tool__swatch tool__swatch--light" id="highlightSwatch" aria-hidden="true"></span>
+                    </button>
+                    <div class="popover" id="highlightPop" hidden>
+                        <p class="popover__title">Resaltado</p>
+                        <div class="swatches" id="highlightSwatches"></div>
+                        <button class="popover__clear" type="button" id="clearHighlight">Quitar resaltado</button>
+                    </div>
+                </div>
+            </div>
+
+            <span class="toolbar__sep" aria-hidden="true"></span>
+
+            <div class="toolbar__group">
+                <button class="tool" type="button" data-cmd="justifyLeft" title="Alinear a la izquierda" aria-label="Alinear a la izquierda">
+                    <span class="miller-icon" data-icon="align_left" aria-hidden="true"></span>
+                </button>
+                <button class="tool" type="button" data-cmd="justifyCenter" title="Centrar" aria-label="Centrar">
+                    <span class="miller-icon" data-icon="align_center" aria-hidden="true"></span>
+                </button>
+                <button class="tool" type="button" data-cmd="justifyRight" title="Alinear a la derecha" aria-label="Alinear a la derecha">
+                    <span class="miller-icon" data-icon="align_right" aria-hidden="true"></span>
+                </button>
+                <button class="tool" type="button" data-cmd="justifyFull" title="Justificar" aria-label="Justificar">
+                    <span class="miller-icon" data-icon="align_justify" aria-hidden="true"></span>
+                </button>
+            </div>
+
+            <span class="toolbar__sep" aria-hidden="true"></span>
+
+            <div class="toolbar__group">
+                <button class="tool" type="button" data-cmd="insertUnorderedList" title="Lista con viñetas" aria-label="Lista con viñetas">
+                    <span class="miller-icon" data-icon="list_settings" aria-hidden="true"></span>
+                </button>
+                <button class="tool" type="button" data-cmd="insertOrderedList" title="Lista numerada" aria-label="Lista numerada">
+                    <span class="tool__letter tool__letter--list">1.</span>
+                </button>
+            </div>
+
+            <span class="toolbar__sep" aria-hidden="true"></span>
+
+            <div class="toolbar__group">
+                <button class="tool" id="linkBtn" type="button" title="Insertar enlace" aria-label="Insertar enlace">
+                    <span class="miller-icon" data-icon="links" aria-hidden="true"></span>
+                </button>
+                <button class="tool" id="imageBtn" type="button" title="Insertar imagen" aria-label="Insertar imagen">
+                    <span class="miller-icon" data-icon="image" aria-hidden="true"></span>
+                </button>
+                <button class="tool" type="button" data-cmd="insertHorizontalRule" title="Separador" aria-label="Separador">
+                    <span class="tool__letter tool__letter--rule">—</span>
+                </button>
+                <button class="tool" type="button" data-cmd="removeFormat" title="Quitar formato" aria-label="Quitar formato">
+                    <span class="miller-icon" data-icon="eraser" aria-hidden="true"></span>
+                </button>
+            </div>
+
+            <span class="toolbar__spacer" aria-hidden="true"></span>
+
+            <div class="toolbar__group">
+                <button class="tool" id="printBtn" type="button" title="Imprimir" aria-label="Imprimir">
+                    <span class="miller-icon" data-icon="printer" aria-hidden="true"></span>
+                </button>
+                <button class="tool tool--danger" id="clearBtn" type="button" title="Vaciar documento" aria-label="Vaciar documento">
+                    <span class="miller-icon" data-icon="delete" aria-hidden="true"></span>
+                </button>
+            </div>
+        </div>
+
+        <main class="workspace" id="workspace">
+            <div class="paper" id="paper">
+                <article class="editor" id="editor" contenteditable="true" spellcheck="true" data-placeholder="Empieza a escribir…" aria-label="Área de edición"></article>
+            </div>
+        </main>
+
+        <footer class="statusbar">
+            <div class="statusbar__side">
+                <span class="statusbar__item">
+                    <span class="miller-icon" data-icon="history" aria-hidden="true"></span>
+                    Guardado automático
+                </span>
+                <span class="statusbar__dot" aria-hidden="true"></span>
+                <span id="wordCount">0 palabras</span>
+                <span class="statusbar__dot" aria-hidden="true"></span>
+                <span id="charCount">0 caracteres</span>
+            </div>
+            <div class="statusbar__side">
+                <span id="readTime">1 min de lectura</span>
+                <span class="statusbar__dot" aria-hidden="true"></span>
+                <span class="statusbar__item">
+                    <span class="miller-icon" data-icon="time" aria-hidden="true"></span>
+                    <span id="savedAt">Sin cambios</span>
+                </span>
+            </div>
+        </footer>
+    </div>
+
+    <div class="modal-layer" id="linkModal" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="linkModalTitle">
+            <header class="modal__head">
+                <div class="modal__heading">
+                    <span class="modal__icon"><span class="miller-icon" data-icon="links" aria-hidden="true"></span></span>
+                    <div>
+                        <h2 id="linkModalTitle">Insertar enlace</h2>
+                        <p>Conecta tu texto con otra página.</p>
+                    </div>
+                </div>
+                <button class="tool" type="button" id="linkClose" aria-label="Cerrar">
+                    <span class="miller-icon" data-icon="close" aria-hidden="true"></span>
+                </button>
+            </header>
+            <div class="field">
+                <label for="linkText">Texto</label>
+                <input type="text" id="linkText" placeholder="Texto visible del enlace">
+            </div>
+            <div class="field">
+                <label for="linkUrl">URL</label>
+                <input type="url" id="linkUrl" placeholder="https://ejemplo.com">
+            </div>
+            <footer class="modal__foot">
+                <button class="btn btn--ghost" type="button" data-close="linkModal">Cancelar</button>
+                <button class="btn btn--primary" type="button" id="linkSave">Insertar enlace</button>
+            </footer>
+        </div>
+    </div>
+
+    <div class="modal-layer" id="imageModal" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="imageModalTitle">
+            <header class="modal__head">
+                <div class="modal__heading">
+                    <span class="modal__icon"><span class="miller-icon" data-icon="image" aria-hidden="true"></span></span>
+                    <div>
+                        <h2 id="imageModalTitle">Insertar imagen</h2>
+                        <p>Desde una URL o un archivo local.</p>
+                    </div>
+                </div>
+                <button class="tool" type="button" id="imageClose" aria-label="Cerrar">
+                    <span class="miller-icon" data-icon="close" aria-hidden="true"></span>
+                </button>
+            </header>
+            <div class="field">
+                <label for="imageUrl">URL de la imagen</label>
+                <input type="url" id="imageUrl" placeholder="https://ejemplo.com/imagen.jpg">
+            </div>
+            <div class="modal__divider"><span>o</span></div>
+            <button class="btn btn--soft btn--wide" type="button" id="pickImageBtn">
+                <span class="miller-icon" data-icon="upload" aria-hidden="true"></span>
+                Elegir una imagen de tu dispositivo
+            </button>
+            <footer class="modal__foot">
+                <button class="btn btn--ghost" type="button" data-close="imageModal">Cancelar</button>
+                <button class="btn btn--primary" type="button" id="imageSave">Insertar imagen</button>
+            </footer>
+        </div>
+    </div>
+
+    <input type="file" id="imageInput" accept="image/*" hidden>
+    <input type="file" id="imageReplaceInput" accept="image/*" hidden>
+
+    <div class="image-bar" id="imageBar" role="toolbar" aria-label="Opciones de imagen" hidden>
+        <div class="image-bar__group">
+            <button class="tool" type="button" data-img-align="left" title="Alinear a la izquierda" aria-label="Alinear imagen a la izquierda">
+                <span class="miller-icon" data-icon="align_left" aria-hidden="true"></span>
+            </button>
+            <button class="tool" type="button" data-img-align="center" title="Centrar imagen" aria-label="Centrar imagen">
+                <span class="miller-icon" data-icon="align_center" aria-hidden="true"></span>
+            </button>
+            <button class="tool" type="button" data-img-align="right" title="Alinear a la derecha" aria-label="Alinear imagen a la derecha">
+                <span class="miller-icon" data-icon="align_right" aria-hidden="true"></span>
+            </button>
+        </div>
+        <span class="image-bar__sep" aria-hidden="true"></span>
+        <div class="image-bar__size">
+            <select class="image-bar__select" id="imageSize" aria-label="Tamaño de la imagen">
+                <option value="">Tamaño original</option>
+                <option value="25">25 %</option>
+                <option value="50">50 %</option>
+                <option value="75">75 %</option>
+                <option value="100">100 %</option>
+            </select>
+            <span class="miller-icon" data-icon="arrow_down" aria-hidden="true"></span>
+        </div>
+        <span class="image-bar__sep" aria-hidden="true"></span>
+        <button class="tool" id="imageReplaceBtn" type="button" title="Reemplazar imagen" aria-label="Reemplazar imagen">
+            <span class="miller-icon" data-icon="upload" aria-hidden="true"></span>
+        </button>
+        <button class="tool tool--danger" id="imageDeleteBtn" type="button" title="Eliminar imagen" aria-label="Eliminar imagen">
+            <span class="miller-icon" data-icon="delete" aria-hidden="true"></span>
+        </button>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
