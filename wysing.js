@@ -296,10 +296,10 @@
     <div class="toolbar" data-wysing="toolbar" role="toolbar" aria-label="Herramientas de formato">
         <div class="toolbar__group">
             <button class="tool" type="button" data-cmd="undo" title="Deshacer (Ctrl+Z)" aria-label="Deshacer">
-                <span class="miller-icon" data-icon="arrow_left" aria-hidden="true"></span>
+                <span class="miller-icon" data-icon="undo" aria-hidden="true"></span>
             </button>
             <button class="tool" type="button" data-cmd="redo" title="Rehacer (Ctrl+Y)" aria-label="Rehacer">
-                <span class="miller-icon" data-icon="arrow_right" aria-hidden="true"></span>
+                <span class="miller-icon" data-icon="redo" aria-hidden="true"></span>
             </button>
         </div>
 
@@ -411,10 +411,10 @@
 
         <div class="toolbar__group">
             <button class="tool" type="button" data-cmd="insertUnorderedList" title="Lista con viñetas" aria-label="Lista con viñetas">
-                <span class="miller-icon" data-icon="list_settings" aria-hidden="true"></span>
+                <span class="miller-icon" data-icon="list_item" aria-hidden="true"></span>
             </button>
             <button class="tool" type="button" data-cmd="insertOrderedList" title="Lista numerada" aria-label="Lista numerada">
-                <span class="tool__letter tool__letter--list">1.</span>
+                <span class="miller-icon" data-icon="list_order" aria-hidden="true"></span>
             </button>
         </div>
 
