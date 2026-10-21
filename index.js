@@ -7,7 +7,7 @@ const SAMPLE = `
     <ul>
         <li>Formato básico: <strong>negrita</strong>, <em>cursiva</em> y <u>subrayado</u>.</li>
         <li>Colores suaves para resaltar sin distraer.</li>
-        <li>Descarga tu documento como HTML cuando quieras.</li>
+        <li>Descarga tu documento en Word, PDF o HTML cuando quieras.</li>
     </ul>
     <p>Empieza a escribir…</p>
 `;

@@ -358,7 +358,8 @@
 .wysing .toolbar__more-menu {
     position: fixed;
     z-index: 130;
-    min-width: 220px;
+    width: 160px;
+    min-width: 0;
     max-width: 90vw;
     max-height: 60vh;
     overflow: auto;
@@ -378,6 +379,17 @@
     display: flex;
     flex-wrap: wrap;
     gap: 2px;
+}
+.wysing .toolbar__more-menu .toolbar__group > .toolbar__group {
+    flex: 1 1 100%;
+    min-width: 0;
+}
+.wysing .toolbar__more-menu .dropdown {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.wysing .toolbar__more-menu .dropdown__trigger {
+    width: 100%;
 }
 .wysing .toolbar__more-menu .toolbar__sep {
     width: 100%;
@@ -470,7 +482,7 @@
     align-items: center;
     gap: 6px;
     height: 32px;
-    min-width: 108px;
+    min-width: auto;
     padding: 0 8px 0 9px;
     border: 1px solid transparent;
     border-radius: 7px;
@@ -560,6 +572,36 @@
 }
 .wysing .dropdown--wide .dropdown__menu {
     min-width: 200px;
+}
+.wysing .dropdown--download .dropdown__trigger {
+    height: 34px;
+    padding: 0 10px 0 12px;
+    border-radius: 9px;
+    background: var(--primary-bg);
+    color: var(--primary-ink);
+    font-size: 12.5px;
+    font-weight: 600;
+    box-shadow: var(--primary-shadow);
+}
+.wysing .dropdown--download .dropdown__trigger:hover,
+.wysing .dropdown--download.is-open .dropdown__trigger,
+.wysing .dropdown--download .dropdown__trigger:focus-visible {
+    background: var(--primary-bg-hover);
+    color: var(--primary-ink);
+    border-color: transparent;
+    box-shadow: var(--primary-shadow);
+}
+.wysing .dropdown--download .dropdown__menu {
+    min-width: 188px;
+    padding: 6px;
+}
+.wysing .download-menu__item {
+    gap: 9px;
+}
+.wysing .download-menu__item .miller-icon {
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 18px;
 }
 .wysing .tool-wrap {
     position: relative;
@@ -1168,6 +1210,10 @@
     }
     .wysing .btn--ghost,
     .wysing .btn--primary {
+        width: 34px;
+        padding: 0;
+    }
+    .wysing .dropdown--download .dropdown__trigger {
         width: 34px;
         padding: 0;
     }

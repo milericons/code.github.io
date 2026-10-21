@@ -26,6 +26,50 @@
 
     const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 48];
 
+    const EXPORT_STYLES = `
+.wysing-export {
+    box-sizing: border-box;
+    max-width: 820px;
+    margin: 48px auto;
+    padding: 60px 72px;
+    background: #fffefa;
+    color: #35383d;
+    border: 1px solid #e6e2da;
+    border-radius: 14px;
+    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 17.5px;
+    line-height: 1.72;
+    overflow-wrap: anywhere;
+}
+.wysing-export * { box-sizing: border-box; }
+.wysing-export h1, .wysing-export h2, .wysing-export h3, .wysing-export h4, .wysing-export h5, .wysing-export h6 {
+    font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+    color: #282b2f;
+    letter-spacing: -0.022em;
+    line-height: 1.22;
+}
+.wysing-export h1 { font-size: 2em; margin: 0.2em 0 0.55em; }
+.wysing-export h2 { font-size: 1.5em; margin: 1.5em 0 0.5em; }
+.wysing-export h3 { font-size: 1.15em; margin: 1.35em 0 0.4em; }
+.wysing-export h1, .wysing-export h2, .wysing-export h3, .wysing-export h4, .wysing-export h5, .wysing-export h6 { break-after: avoid; }
+.wysing-export img, .wysing-export pre, .wysing-export blockquote, .wysing-export table { break-inside: avoid; }
+.wysing-export p { margin: 0 0 1em; }
+.wysing-export a { color: #5b6977; text-underline-offset: 2.5px; }
+.wysing-export ul, .wysing-export ol { margin: 0 0 1em; padding-left: 1.5em; }
+.wysing-export li::marker { color: #6f7d8c; }
+.wysing-export blockquote { margin: 1.5em 0; padding: 0.9em 1.3em; background: #f7f5f0; border-left: 3px solid #cfd6cd; border-radius: 0 10px 10px 0; color: #4f545a; }
+.wysing-export pre { padding: 14px 17px; background: #f4f2ec; border: 1px solid #e6e2da; border-radius: 10px; white-space: pre-wrap; overflow-x: auto; font-family: "Cascadia Code", Consolas, monospace; font-size: 13.5px; }
+.wysing-export code { padding: 2px 5px; background: #f1efe9; border-radius: 5px; font-family: "Cascadia Code", Consolas, monospace; font-size: 0.87em; }
+.wysing-export pre code { padding: 0; background: transparent; }
+.wysing-export hr { margin: 2em 0; border: 0; border-top: 1px dashed #d9d4ca; }
+.wysing-export img { display: block; max-width: 100%; height: auto; margin: 1.5em 0; border-radius: 10px; }
+.wysing-export table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+.wysing-export th, .wysing-export td { padding: 6px 8px; border: 1px solid #ddd8cf; text-align: left; }
+@media (max-width: 640px) {
+    .wysing-export { margin: 0; padding: 32px 22px; border: 0; border-radius: 0; }
+}
+`;
+
     function escapeHtml(value) {
         return String(value)
             .replace(/&/g, '&amp;')
@@ -90,6 +134,8 @@
             this._changeCallbacks = [];
             this._savedRange = null;
             this._selectedImage = null;
+            this._pdfBusy = false;
+            this._html2PdfPromise = null;
             this._changeTimer = 0;
             this._toastTimer = 0;
             this._destroyed = false;
@@ -307,10 +353,7 @@
         }
 
         _openDocument(id) {
-            if (id === this._currentDocId) {
-                this._closeModal(this._el.docsModal);
-                return;
-            }
+            if (id === this._currentDocId) return;
             this._saveCurrentDoc();
             this._currentDocId = id;
             const doc = this._getCurrentDoc();
@@ -412,6 +455,18 @@
             });
         }
 
+        _syncActiveDocTitle() {
+            const doc = this._getCurrentDoc();
+            if (!doc) return;
+            doc.title = this._el.title.value;
+            const item = this._el.docsList
+                ? this._el.docsList.querySelector('.docs-list__item.is-active .docs-list__title')
+                : null;
+            if (!item) return;
+            const label = doc.title || 'Documento sin título';
+            if (item.textContent !== label) item.textContent = label;
+        }
+
         _buildDOM() {
             const uid = this._uid;
             const placeholder = escapeAttr(this._options.placeholder);
@@ -472,10 +527,26 @@
                 <span class="miller-icon" data-icon="clipboard" aria-hidden="true"></span>
                 <span class="btn__label">Copiar HTML</span>
             </button>
-            <button class="btn btn--primary" data-wysing="download-btn" type="button" title="Descargar como archivo HTML">
-                <span class="miller-icon" data-icon="download" aria-hidden="true"></span>
-                <span class="btn__label">Descargar</span>
-            </button>
+            <div class="dropdown dropdown--download" data-wysing="download-dropdown">
+                <button class="btn btn--primary dropdown__trigger" data-wysing="download-btn" type="button" title="Descargar documento" aria-haspopup="menu" aria-expanded="false">
+                    <span class="miller-icon" data-icon="download" aria-hidden="true"></span>
+                    <span class="btn__label">Descargar</span>
+                </button>
+                <div class="dropdown__menu download-menu" data-wysing="download-menu" role="menu" hidden>
+                    <button class="dropdown__item download-menu__item" type="button" role="menuitem" data-download="word">
+                        <span class="miller-icon" data-icon="file_word" aria-hidden="true"></span>
+                        <span>Word</span>
+                    </button>
+                    <button class="dropdown__item download-menu__item" type="button" role="menuitem" data-download="pdf">
+                        <span class="miller-icon" data-icon="file_pdf" aria-hidden="true"></span>
+                        <span>PDF</span>
+                    </button>
+                    <button class="dropdown__item download-menu__item" type="button" role="menuitem" data-download="html">
+                        <span class="miller-icon" data-icon="code" aria-hidden="true"></span>
+                        <span>HTML</span>
+                    </button>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -754,28 +825,6 @@
         </div>
     </div>
 
-    <div class="modal-layer" data-wysing="docs-modal" hidden>
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="${uid}-docs-title">
-            <header class="modal__head">
-                <div class="modal__heading">
-                    <span class="modal__icon"><span class="miller-icon" data-icon="file_text" aria-hidden="true"></span></span>
-                    <div>
-                        <h2 id="${uid}-docs-title">Historial</h2>
-                        <p>Selecciona un documento para abrirlo.</p>
-                    </div>
-                </div>
-                <button class="tool" type="button" data-wysing="docs-close" aria-label="Cerrar">
-                    <span class="miller-icon" data-icon="close" aria-hidden="true"></span>
-                </button>
-            </header>
-            <div class="docs-list" data-wysing="docs-list"></div>
-            <footer class="modal__foot">
-                <button class="btn btn--ghost" type="button" data-wysing-close="docs">Cerrar</button>
-                <button class="btn btn--primary" type="button" data-wysing="docs-new">Nuevo documento</button>
-            </footer>
-        </div>
-    </div>
-
     <div class="modal-layer" data-wysing="confirm-modal" hidden>
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="${uid}-confirm-title">
             <header class="modal__head">
@@ -899,6 +948,8 @@
                 docsNewBtn: $('[data-wysing="docs-new"]'),
                 copyBtn: $('[data-wysing="copy-btn"]'),
                 downloadBtn: $('[data-wysing="download-btn"]'),
+                downloadDropdown: $('[data-wysing="download-dropdown"]'),
+                downloadMenu: $('[data-wysing="download-menu"]'),
                 printBtn: $('[data-wysing="print-btn"]'),
                 codeBtn: $('[data-wysing="code-btn"]'),
                 codePanel: $('[data-wysing="code-panel"]'),
@@ -993,24 +1044,22 @@
             });
         }
 
-        _setCodePanel(enabled) {
-            if (!this._el.codePanel) return;
-            this._el.codePanel.hidden = !enabled;
-            if (this._el.codeBtn) {
-                this._el.codeBtn.classList.toggle('is-active', enabled);
-                this._el.codeBtn.setAttribute('aria-pressed', String(enabled));
+        _setPanelState(panel, button, enabled, onOpen) {
+            if (!panel) return;
+            panel.hidden = !enabled;
+            if (button) {
+                button.classList.toggle('is-active', enabled);
+                button.setAttribute('aria-pressed', String(enabled));
             }
-            if (enabled) this._updateCodeOutput();
+            if (enabled && typeof onOpen === 'function') onOpen();
+        }
+
+        _setCodePanel(enabled) {
+            this._setPanelState(this._el.codePanel, this._el.codeBtn, enabled, () => this._updateCodeOutput());
         }
 
         _setDocsPanel(enabled) {
-            if (!this._el.docsPanel) return;
-            this._el.docsPanel.hidden = !enabled;
-            if (this._el.docsBtn) {
-                this._el.docsBtn.classList.toggle('is-active', enabled);
-                this._el.docsBtn.setAttribute('aria-pressed', String(enabled));
-            }
-            if (enabled) this._renderDocsList();
+            this._setPanelState(this._el.docsPanel, this._el.docsBtn, enabled, () => this._renderDocsList());
         }
 
         _initToolbarOverflow() {
@@ -1167,7 +1216,26 @@
             if (!btn || !menu) return;
             const rect = btn.getBoundingClientRect();
             menu.style.top = `${Math.round(rect.bottom + 6)}px`;
-            menu.style.left = `${Math.round(Math.max(8, rect.right - (menu.offsetWidth || 220)))}px`;
+            menu.style.left = `${Math.round(Math.max(8, rect.right - (menu.offsetWidth || 160)))}px`;
+        }
+
+        _toggleDownloadMenu() {
+            const trigger = this._el.downloadBtn;
+            const menu = this._el.downloadMenu;
+            const root = this._el.downloadDropdown;
+            if (!trigger || !menu || !root) return;
+            const open = menu.hidden;
+            this._closeDropdowns(root);
+            menu.hidden = !open;
+            root.classList.toggle('is-open', open);
+            trigger.setAttribute('aria-expanded', String(open));
+            if (!open) return;
+            const rect = trigger.getBoundingClientRect();
+            const width = menu.offsetWidth || 184;
+            const margin = 8;
+            const left = Math.max(margin, Math.min(rect.right - width, window.innerWidth - width - margin));
+            menu.style.left = `${Math.round(left)}px`;
+            menu.style.top = `${Math.round(rect.bottom + 6)}px`;
         }
 
         _confirm(message, onConfirm) {
@@ -1237,6 +1305,7 @@
                 this._el.savedAt.textContent = formatTime(now);
                 this._setSaveState(false);
             }
+            this._syncActiveDocTitle();
             this._emitChange();
             return ok;
         }
@@ -1430,6 +1499,207 @@
             this._onContentChange();
         }
 
+        _safePastedUrl(value, allowImage) {
+            const raw = String(value || '').trim();
+            if (!raw) return '';
+            if (allowImage && /^data:image\/(?:png|jpe?g|gif|webp|avif);base64,/i.test(raw)) return raw;
+            if (raw.startsWith('//')) return `https:${raw}`;
+            if (/^(?:https?:\/\/|mailto:|tel:)/i.test(raw)) return raw;
+            return '';
+        }
+
+        _cleanPastedHtml(html) {
+            if (!html) return '';
+            const doc = new DOMParser().parseFromString(String(html), 'text/html');
+            const body = doc.body;
+            if (!body) return '';
+
+            const drop = new Set([
+                'SCRIPT', 'STYLE', 'HEAD', 'META', 'LINK', 'TITLE', 'NOSCRIPT', 'TEMPLATE',
+                'IFRAME', 'OBJECT', 'EMBED', 'FORM', 'INPUT', 'BUTTON', 'SELECT', 'TEXTAREA',
+                'SVG', 'MATH', 'CANVAS', 'VIDEO', 'AUDIO', 'SOURCE', 'TRACK', 'MAP', 'AREA', 'BASE'
+            ]);
+            const unwrap = new Set(['SPAN', 'FONT', 'SMALL', 'LABEL', 'ABBR', 'TIME', 'BIG', 'TT', 'CENTER', 'DETAILS', 'SUMMARY']);
+            const containers = new Set([
+                'DIV', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'MAIN', 'FIGURE', 'FIGCAPTION', 'ADDRESS'
+            ]);
+            const blocks = new Set([
+                'P', 'DIV', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'MAIN', 'FIGURE', 'FIGCAPTION',
+                'ADDRESS', 'CENTER', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'PRE',
+                'UL', 'OL', 'LI', 'HR', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TH', 'TD'
+            ]);
+            const inline = new Set([
+                'A', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'STRIKE', 'DEL', 'SUB', 'SUP', 'CODE',
+                'BR', 'IMG', 'MARK'
+            ]);
+
+            Array.from(body.querySelectorAll('*')).forEach((el) => {
+                const style = el.getAttribute('style') || '';
+                if (el.hasAttribute('hidden') || /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(style)) {
+                    el.remove();
+                }
+            });
+
+            const elements = Array.from(body.querySelectorAll('*'));
+            for (let i = elements.length - 1; i >= 0; i--) {
+                const el = elements[i];
+                if (!el.parentNode) continue;
+                const tag = el.tagName.toUpperCase();
+                if (drop.has(tag)) {
+                    el.remove();
+                    continue;
+                }
+
+                const style = el.getAttribute('style') || '';
+                const isBoldTag = ['B', 'STRONG'].includes(tag);
+                const isItalicTag = ['I', 'EM'].includes(tag);
+                const isUnderlineTag = tag === 'U';
+                const isStrikeTag = ['S', 'STRIKE', 'DEL'].includes(tag);
+                const forceUnwrap = (isBoldTag && /font-weight\s*:\s*(?:normal|lighter|[1-5]00)\b/i.test(style))
+                    || (isItalicTag && /font-style\s*:\s*normal\b/i.test(style))
+                    || ((isUnderlineTag || isStrikeTag) && /text-decoration(?:-line)?\s*:[^;]*\bnone\b/i.test(style));
+                const wrappers = [];
+                if (!isBoldTag && /font-weight\s*:\s*(?:bold|bolder|[6-9]00)/i.test(style)) wrappers.push('strong');
+                if (!isItalicTag && /font-style\s*:\s*(?:italic|oblique)/i.test(style)) wrappers.push('em');
+                if (!isUnderlineTag && /text-decoration(?:-line)?\s*:[^;]*underline/i.test(style)) wrappers.push('u');
+                if (!isStrikeTag && /text-decoration(?:-line)?\s*:[^;]*line-through/i.test(style)) wrappers.push('s');
+
+                let href = '';
+                let src = '';
+                let alt = '';
+                if (tag === 'A') href = this._safePastedUrl(el.getAttribute('href'), false);
+                if (tag === 'IMG') {
+                    src = this._safePastedUrl(el.getAttribute('src'), true);
+                    alt = el.getAttribute('alt') || '';
+                }
+
+                Array.from(el.attributes).forEach((attr) => el.removeAttribute(attr.name));
+
+                if (tag === 'IMG') {
+                    if (!src) {
+                        el.remove();
+                        continue;
+                    }
+                    el.setAttribute('src', src);
+                    if (alt) el.setAttribute('alt', alt);
+                    continue;
+                }
+
+                if (tag === 'A' && href) {
+                    el.setAttribute('href', href);
+                    el.setAttribute('target', '_blank');
+                    el.setAttribute('rel', 'noopener noreferrer');
+                }
+
+                const hasBlockChild = Array.from(el.children).some((child) => blocks.has(child.tagName.toUpperCase()));
+                if (wrappers.length && !hasBlockChild && !['BR', 'HR', 'PRE', 'CODE'].includes(tag)) {
+                    let target = el;
+                    wrappers.forEach((name) => {
+                        const wrapper = doc.createElement(name);
+                        while (target.firstChild) wrapper.appendChild(target.firstChild);
+                        target.appendChild(wrapper);
+                        target = wrapper;
+                    });
+                }
+
+                if (forceUnwrap || (tag === 'A' && !href)) {
+                    el.replaceWith(...Array.from(el.childNodes));
+                    continue;
+                }
+
+                if (tag === 'STRIKE') {
+                    const strike = doc.createElement('s');
+                    while (el.firstChild) strike.appendChild(el.firstChild);
+                    el.replaceWith(strike);
+                    continue;
+                }
+
+                if (unwrap.has(tag)) {
+                    el.replaceWith(...Array.from(el.childNodes));
+                    continue;
+                }
+
+                if (containers.has(tag)) {
+                    if (hasBlockChild) {
+                        el.replaceWith(...Array.from(el.childNodes));
+                        continue;
+                    }
+                    const paragraph = doc.createElement('p');
+                    while (el.firstChild) paragraph.appendChild(el.firstChild);
+                    el.replaceWith(paragraph);
+                    continue;
+                }
+
+                if (!blocks.has(tag) && !inline.has(tag)) {
+                    el.replaceWith(...Array.from(el.childNodes));
+                }
+            }
+
+            const isInlineNode = (node) => {
+                if (node.nodeType === 3) return Boolean(node.nodeValue.trim());
+                if (node.nodeType !== 1) return false;
+                return inline.has(node.tagName.toUpperCase());
+            };
+            let group = null;
+            Array.from(body.childNodes).forEach((node) => {
+                if (node.nodeType === 8) {
+                    node.remove();
+                    return;
+                }
+                if (node.nodeType === 3 && !node.nodeValue.trim()) {
+                    if (group) group.appendChild(node);
+                    return;
+                }
+                if (!isInlineNode(node)) {
+                    group = null;
+                    return;
+                }
+                if (!group) {
+                    group = doc.createElement('p');
+                    body.insertBefore(group, node);
+                }
+                group.appendChild(node);
+            });
+
+            const trimStart = (node) => {
+                if (node.nodeType === 3) {
+                    node.nodeValue = node.nodeValue.replace(/^\s+/, '');
+                    return node.nodeValue.length > 0;
+                }
+                if (node.nodeType !== 1) return false;
+                if (['PRE', 'CODE', 'BR', 'IMG', 'HR'].includes(node.tagName)) return true;
+                return Array.from(node.childNodes).some((child) => trimStart(child));
+            };
+            const trimEnd = (node) => {
+                if (node.nodeType === 3) {
+                    node.nodeValue = node.nodeValue.replace(/\s+$/, '');
+                    return node.nodeValue.length > 0;
+                }
+                if (node.nodeType !== 1) return false;
+                if (['PRE', 'CODE', 'BR', 'IMG', 'HR'].includes(node.tagName)) return true;
+                return Array.from(node.childNodes).reverse().some((child) => trimEnd(child));
+            };
+
+            Array.from(body.querySelectorAll('p, h1, h2, h3, h4, h5, h6, blockquote, li, figcaption, th, td')).forEach((el) => {
+                el.normalize();
+                const textNodes = [];
+                const collect = (node) => {
+                    Array.from(node.childNodes).forEach((child) => {
+                        if (child.nodeType === 3) textNodes.push(child);
+                        else if (child.nodeType === 1 && !['PRE', 'CODE'].includes(child.tagName)) collect(child);
+                    });
+                };
+                collect(el);
+                textNodes.forEach((node) => {
+                    node.nodeValue = node.nodeValue.replace(/[ \t\r\n]+/g, ' ');
+                });
+                trimStart(el);
+                trimEnd(el);
+            });
+
+            return body.innerHTML.trim();
+        }
+
         _insertImageSrc(src, alt) {
             const token = `wysing-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             this._insertHtml(`<img src="${escapeAttr(src)}" alt="${escapeAttr(alt || '')}" data-wysing-token="${token}">`);
@@ -1578,45 +1848,6 @@
             this._el.editor.focus();
         }
 
-        _buildExportHtml() {
-            const title = escapeHtml(this._el.title.value.trim() || 'Documento sin título');
-            const body = this._el.editor.innerHTML;
-            return `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${title}</title>
-<style>
-:root { color-scheme: light; }
-* { box-sizing: border-box; }
-body { margin: 0; background: #f3f2ee; color: #35383d; font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif; font-size: 17.5px; line-height: 1.72; }
-main { max-width: 820px; margin: 48px auto; padding: 60px 72px; background: #fffefa; border: 1px solid #e6e2da; border-radius: 14px; }
-h1, h2, h3 { font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif; color: #282b2f; letter-spacing: -0.022em; line-height: 1.22; }
-h1 { font-size: 2em; margin: 0.2em 0 0.55em; }
-h2 { font-size: 1.5em; margin: 1.5em 0 0.5em; }
-h3 { font-size: 1.15em; margin: 1.35em 0 0.4em; }
-p { margin: 0 0 1em; }
-a { color: #5b6977; cursor: pointer; text-underline-offset: 2.5px; }
-ul, ol { margin: 0 0 1em; padding-left: 1.5em; }
-li::marker { color: #6f7d8c; }
-blockquote { margin: 1.5em 0; padding: 0.9em 1.3em; background: #f7f5f0; border-left: 3px solid #cfd6cd; border-radius: 0 10px 10px 0; color: #4f545a; }
-pre { padding: 14px 17px; background: #f4f2ec; border: 1px solid #e6e2da; border-radius: 10px; white-space: pre-wrap; overflow-x: auto; font-family: "Cascadia Code", Consolas, monospace; font-size: 13.5px; }
-code { padding: 2px 5px; background: #f1efe9; border-radius: 5px; font-family: "Cascadia Code", Consolas, monospace; font-size: 0.87em; }
-pre code { padding: 0; background: transparent; }
-hr { margin: 2em 0; border: 0; border-top: 1px dashed #d9d4ca; }
-img { display: block; max-width: 100%; height: auto; margin: 1.5em 0; border-radius: 10px; }
-@media (max-width: 640px) { main { margin: 0; padding: 32px 22px; border: 0; border-radius: 0; } }
-</style>
-</head>
-<body>
-<main>
-${body}
-</main>
-</body>
-</html>`;
-        }
-
         async _copyHtml() {
             const html = this._el.editor.innerHTML;
             try {
@@ -1639,17 +1870,174 @@ ${body}
             }
         }
 
-        _downloadHtml() {
-            const blob = new Blob([this._buildExportHtml()], { type: 'text/html;charset=utf-8' });
+        _buildExportHtml() {
+            const title = escapeHtml(this._el.title.value.trim() || 'Documento sin título');
+            return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title}</title>
+<style>
+:root { color-scheme: light; }
+body { margin: 0; background: #f3f2ee; }
+${EXPORT_STYLES}
+</style>
+</head>
+<body>
+<main class="wysing-export">
+${this._el.editor.innerHTML}
+</main>
+</body>
+</html>`;
+        }
+
+        _downloadBlob(filename, parts, type) {
+            const blob = new Blob(parts, { type });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `${slugify(this._el.title.value)}.html`;
+            link.download = filename;
             document.body.appendChild(link);
             link.click();
             link.remove();
             window.setTimeout(() => URL.revokeObjectURL(url), 2000);
-            this._toast('Documento descargado');
+        }
+
+        _downloadHtml() {
+            this._downloadBlob(`${slugify(this._el.title.value)}.html`, [this._buildExportHtml()], 'text/html;charset=utf-8');
+            this._toast('Documento HTML descargado');
+        }
+
+        _buildWordHtml() {
+            const title = escapeHtml(this._el.title.value.trim() || 'Documento sin título');
+            const body = this._el.editor.innerHTML;
+            return `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40" lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="ProgId" content="Word.Document">
+<meta name="Generator" content="Microsoft Word 15">
+<meta name="Originator" content="Microsoft Word 15">
+<title>${title}</title>
+<!--[if gte mso 9]>
+<xml>
+<w:WordDocument>
+<w:View>Print</w:View>
+<w:Zoom>100</w:Zoom>
+<w:DoNotOptimizeForBrowser/>
+</w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+@page WordSection1 { size: 595.3pt 841.9pt; margin: 72pt 72pt 72pt 72pt; }
+div.WordSection1 { page: WordSection1; }
+body { margin: 0; background: #fff; color: #222; font-family: Calibri, "Segoe UI", Arial, sans-serif; font-size: 11pt; line-height: 1.5; }
+p { margin: 0 0 8pt; }
+h1, h2, h3 { font-family: Calibri, "Segoe UI", Arial, sans-serif; color: #1f2328; line-height: 1.2; }
+h1 { font-size: 22pt; margin: 14pt 0 6pt; }
+h2 { font-size: 16pt; margin: 14pt 0 6pt; }
+h3 { font-size: 13pt; margin: 12pt 0 5pt; }
+a { color: #2f5d8a; text-decoration: underline; }
+ul, ol { margin: 0 0 8pt 18pt; padding: 0; }
+li { margin: 0 0 3pt; }
+blockquote { margin: 10pt 0; padding: 6pt 12pt; background: #f7f5f0; border-left: 3pt solid #cfd6cd; color: #444; }
+pre { margin: 8pt 0; padding: 8pt 10pt; background: #f4f2ec; border: 0.5pt solid #ddd8cf; white-space: pre-wrap; font-family: Consolas, "Courier New", monospace; font-size: 9.5pt; }
+code { font-family: Consolas, "Courier New", monospace; font-size: 9.5pt; }
+pre code { font-size: 9.5pt; }
+hr { margin: 14pt 0; border: 0; border-top: 0.75pt solid #cfcac1; }
+img { max-width: 100%; height: auto; }
+table { width: 100%; border-collapse: collapse; }
+td, th { padding: 4pt 6pt; border: 0.5pt solid #d6d1c8; }
+</style>
+</head>
+<body>
+<div class="WordSection1">
+${body}
+</div>
+</body>
+</html>`;
+        }
+
+        _downloadWord() {
+            this._downloadBlob(`${slugify(this._el.title.value)}.doc`, ['\ufeff', this._buildWordHtml()], 'application/msword;charset=utf-8');
+            this._toast('Documento Word descargado');
+        }
+
+        _loadHtml2Pdf() {
+            if (window.html2pdf) return Promise.resolve(window.html2pdf);
+            if (this._html2PdfPromise) return this._html2PdfPromise;
+            this._html2PdfPromise = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+                script.async = true;
+                script.onload = () => {
+                    if (window.html2pdf) resolve(window.html2pdf);
+                    else reject(new Error('html2pdf no disponible'));
+                };
+                script.onerror = () => {
+                    script.remove();
+                    reject(new Error('No se pudo cargar html2pdf'));
+                };
+                document.head.appendChild(script);
+            }).catch((error) => {
+                this._html2PdfPromise = null;
+                throw error;
+            });
+            return this._html2PdfPromise;
+        }
+
+        _buildPdfElement() {
+            const element = document.createElement('div');
+            element.className = 'wysing-export';
+            element.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;max-width:none;margin:0;padding:56px;background:#fff;border:0;border-radius:0;box-shadow:none;';
+            element.innerHTML = this._el.editor.innerHTML;
+            return element;
+        }
+
+        _waitForImages(element) {
+            const pending = Array.from(element.images || [])
+                .filter((image) => !image.complete)
+                .map((image) => new Promise((resolve) => {
+                    const done = () => resolve();
+                    image.addEventListener('load', done, { once: true });
+                    image.addEventListener('error', done, { once: true });
+                    window.setTimeout(done, 3000);
+                }));
+            return Promise.all(pending);
+        }
+
+        async _downloadPdf() {
+            if (this._pdfBusy) return;
+            this._pdfBusy = true;
+            this._toast('Generando PDF…');
+            let element = null;
+            let style = null;
+            try {
+                const html2pdf = await this._loadHtml2Pdf();
+                style = document.createElement('style');
+                style.textContent = EXPORT_STYLES;
+                document.head.appendChild(style);
+                element = this._buildPdfElement();
+                document.body.appendChild(element);
+                await this._waitForImages(element);
+                await html2pdf().set({
+                    margin: [10, 10, 10, 10],
+                    filename: `${slugify(this._el.title.value)}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                    pagebreak: { mode: ['css', 'legacy'] }
+                }).from(element).save();
+                this._toast('Documento PDF descargado');
+            } catch (error) {
+                this._toast('No se pudo generar el PDF; usando impresión');
+                window.print();
+            } finally {
+                if (element) element.remove();
+                if (style) style.remove();
+                this._pdfBusy = false;
+            }
         }
 
         _openImageModal() {
@@ -1693,13 +2081,13 @@ ${body}
             this._toast('Imagen insertada');
         }
 
-        _applyFontSize(px) {
+        _applyInlineStyle(property, value) {
             const selection = window.getSelection();
             if (!selection || selection.isCollapsed || !selection.rangeCount) return;
             const range = selection.getRangeAt(0);
             if (!this._el.editor.contains(range.commonAncestorContainer)) return;
             const span = document.createElement('span');
-            span.style.fontSize = `${px}px`;
+            span.style[property] = value;
             try {
                 range.surroundContents(span);
             } catch (error) {
@@ -1714,20 +2102,34 @@ ${body}
             this._onContentChange();
         }
 
-        _getSelectionFontSize() {
+        _applyFontSize(px) {
+            this._applyInlineStyle('fontSize', `${px}px`);
+        }
+
+        _getSelectionNode() {
             const selection = window.getSelection();
-            if (!selection || !selection.rangeCount) return '';
+            if (!selection || !selection.rangeCount) return null;
             let node = selection.anchorNode;
             if (node && node.nodeType === 3) node = node.parentElement;
-            if (!node || !this._el.editor.contains(node)) return '';
+            return node && this._el.editor.contains(node) ? node : null;
+        }
+
+        _getSelectionStyle(property) {
+            const node = this._getSelectionNode();
+            if (!node) return '';
             let el = node;
             while (el && el !== this._el.editor) {
-                if (el.style && el.style.fontSize) {
-                    const px = parseFloat(el.style.fontSize);
-                    if (px) return String(Math.round(px));
-                }
+                if (el.style && el.style[property]) return el.style[property];
                 el = el.parentElement;
             }
+            return '';
+        }
+
+        _getSelectionFontSize() {
+            const px = parseFloat(this._getSelectionStyle('fontSize'));
+            if (px) return String(Math.round(px));
+            const node = this._getSelectionNode();
+            if (!node) return '';
             const computed = window.getComputedStyle(node).fontSize;
             return computed ? String(Math.round(parseFloat(computed))) : '';
         }
@@ -1745,38 +2147,11 @@ ${body}
         }
 
         _applyFontFamily(family) {
-            const selection = window.getSelection();
-            if (!selection || selection.isCollapsed || !selection.rangeCount) return;
-            const range = selection.getRangeAt(0);
-            if (!this._el.editor.contains(range.commonAncestorContainer)) return;
-            const span = document.createElement('span');
-            span.style.fontFamily = family;
-            try {
-                range.surroundContents(span);
-            } catch (error) {
-                const fragment = range.extractContents();
-                span.appendChild(fragment);
-                range.insertNode(span);
-            }
-            const newRange = document.createRange();
-            newRange.selectNodeContents(span);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-            this._onContentChange();
+            this._applyInlineStyle('fontFamily', family);
         }
 
         _getSelectionFontFamily() {
-            const selection = window.getSelection();
-            if (!selection || !selection.rangeCount) return '';
-            let node = selection.anchorNode;
-            if (node && node.nodeType === 3) node = node.parentElement;
-            if (!node || !this._el.editor.contains(node)) return '';
-            let el = node;
-            while (el && el !== this._el.editor) {
-                if (el.style && el.style.fontFamily) return el.style.fontFamily;
-                el = el.parentElement;
-            }
-            return '';
+            return this._getSelectionStyle('fontFamily');
         }
 
         _refreshFontFamilyLabel() {
@@ -2021,7 +2396,7 @@ ${body}
             this.$$('[data-wysing-close]', this.root).forEach((button) => {
                 button.addEventListener('click', () => {
                     const which = button.dataset.wysingClose;
-                    const modal = which === 'link' ? el.linkModal : which === 'image' ? el.imageModal : which === 'docs' ? el.docsModal : which === 'confirm' ? el.confirmModal : null;
+                    const modal = which === 'link' ? el.linkModal : which === 'image' ? el.imageModal : which === 'confirm' ? el.confirmModal : null;
                     if (modal) this._closeModal(modal);
                 });
             });
@@ -2074,14 +2449,25 @@ ${body}
             });
 
             el.editor.addEventListener('paste', (event) => {
-                const items = event.clipboardData ? Array.from(event.clipboardData.items) : [];
+                const data = event.clipboardData;
+                if (!data) return;
+                const items = Array.from(data.items || []);
                 const imageItem = items.find((item) => item.type && item.type.startsWith('image/'));
-                if (!imageItem) return;
-                const file = imageItem.getAsFile();
-                if (!file) return;
+                if (imageItem) {
+                    const file = imageItem.getAsFile();
+                    if (!file) return;
+                    event.preventDefault();
+                    this._saveSelection();
+                    this._insertImageFile(file);
+                    return;
+                }
+                const html = data.getData('text/html');
+                if (!html) return;
+                const cleaned = this._cleanPastedHtml(html);
+                if (!cleaned) return;
                 event.preventDefault();
                 this._saveSelection();
-                this._insertImageFile(file);
+                this._insertHtml(cleaned);
             });
 
             ['dragenter', 'dragover'].forEach((type) => {
@@ -2110,6 +2496,7 @@ ${body}
             });
 
             el.title.addEventListener('input', () => {
+                this._syncActiveDocTitle();
                 this._scheduleChange();
                 this._setEditing(true);
             });
@@ -2125,8 +2512,8 @@ ${body}
             });
 
             el.newBtn.addEventListener('click', () => {
-                this._confirm('¿Crear un documento nuevo? Se reemplazará el contenido actual.', () => {
-                    this._resetDocument('Documento sin título');
+                this._confirm('¿Crear un documento nuevo? El actual se guardará en el historial.', () => {
+                    this._newDocument();
                     this._toast('Documento nuevo');
                 });
             });
@@ -2134,9 +2521,10 @@ ${body}
             if (el.confirmCancel) el.confirmCancel.addEventListener('click', () => this._closeModal(el.confirmModal));
             if (el.confirmClose) el.confirmClose.addEventListener('click', () => this._closeModal(el.confirmModal));
             if (el.confirmOk) el.confirmOk.addEventListener('click', () => {
-                this._closeModal(el.confirmModal);
-                if (typeof this._confirmCallback === 'function') this._confirmCallback();
+                const callback = this._confirmCallback;
                 this._confirmCallback = null;
+                this._closeModal(el.confirmModal);
+                if (typeof callback === 'function') callback();
             });
 
             el.docsBtn.addEventListener('click', () => this._setDocsPanel(el.docsPanel.hidden));
@@ -2153,7 +2541,21 @@ ${body}
             });
 
             el.copyBtn.addEventListener('click', () => this._copyHtml());
-            el.downloadBtn.addEventListener('click', () => this._downloadHtml());
+            el.downloadBtn.addEventListener('click', (event) => {
+                event.stopPropagation();
+                this._toggleDownloadMenu();
+            });
+            if (el.downloadMenu) {
+                el.downloadMenu.addEventListener('click', (event) => {
+                    const item = event.target.closest('[data-download]');
+                    if (!item) return;
+                    this._closeDropdowns();
+                    const format = item.dataset.download;
+                    if (format === 'word') this._downloadWord();
+                    else if (format === 'pdf') this._downloadPdf();
+                    else if (format === 'html') this._downloadHtml();
+                });
+            }
             el.printBtn.addEventListener('click', () => window.print());
 
             if (el.toolbarMoreBtn) {
@@ -2161,8 +2563,8 @@ ${body}
                     event.stopPropagation();
                     if (!el.toolbarMoreMenu) return;
                     const open = el.toolbarMoreMenu.hidden;
-                    if (open) this._positionToolbarMoreMenu();
                     el.toolbarMoreMenu.hidden = !open;
+                    if (open) this._positionToolbarMoreMenu();
                     el.toolbarMoreBtn.setAttribute('aria-expanded', String(open));
                 });
             }
