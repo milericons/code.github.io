@@ -131,6 +131,17 @@
 
             this._uid = `wysing-${Math.random().toString(36).slice(2, 9)}`;
             this._theme = 'dark';
+            this._themePreference = 'dark';
+            this._density = 'comoda';
+            try {
+                const savedDensity = localStorage.getItem('wysing-density');
+                if (savedDensity) this._density = savedDensity;
+            } catch (e) { }
+            this._pageWidth = 'normal';
+            this._editorFontSize = 16;
+            this._autosave = true;
+            this._confirmOnClear = true;
+            this._animations = true;
             this._changeCallbacks = [];
             this._savedRange = null;
             this._selectedImage = null;
@@ -162,7 +173,14 @@
             this._initSwatches();
             this._initDropdowns();
             this._bindEvents();
+            try {
+                const savedTheme = localStorage.getItem('wysing-theme');
+                if (savedTheme) this._options.theme = savedTheme;
+            } catch (e) { }
             this._applyTheme(this._options.theme);
+            this._applyPageWidth(this._pageWidth);
+            this._applyEditorFontSize(this._editorFontSize);
+            this._applyAnimations(this._animations);
 
             this._loadDocs();
             if (!this._docs.length) {
@@ -519,6 +537,9 @@
             <button class="btn btn--icon" data-wysing="new-btn" type="button" title="Nuevo documento" aria-label="Nuevo documento">
                 <span class="miller-icon" data-icon="file_add" aria-hidden="true"></span>
             </button>
+            <button class="btn btn--icon" data-wysing="settings-btn" type="button" title="Configuración" aria-label="Configuración" aria-haspopup="dialog">
+                <span class="miller-icon" data-icon="settings" aria-hidden="true"></span>
+            </button>
             <button class="btn btn--ghost" data-wysing="preview-btn" type="button" aria-pressed="false" title="Vista previa de lectura">
                 <span class="miller-icon" data-icon="eye" aria-hidden="true"></span>
                 <span class="btn__label">Vista previa</span>
@@ -536,14 +557,17 @@
                     <button class="dropdown__item download-menu__item" type="button" role="menuitem" data-download="word">
                         <span class="miller-icon" data-icon="file_word" aria-hidden="true"></span>
                         <span>Word</span>
+                        <span class="miller-icon download-menu__loader" data-icon="loader_min" data-animated="true" aria-hidden="true"></span>
                     </button>
                     <button class="dropdown__item download-menu__item" type="button" role="menuitem" data-download="pdf">
                         <span class="miller-icon" data-icon="file_pdf" aria-hidden="true"></span>
                         <span>PDF</span>
+                        <span class="miller-icon download-menu__loader" data-icon="loader_min" data-animated="true" aria-hidden="true"></span>
                     </button>
                     <button class="dropdown__item download-menu__item" type="button" role="menuitem" data-download="html">
                         <span class="miller-icon" data-icon="code" aria-hidden="true"></span>
                         <span>HTML</span>
+                        <span class="miller-icon download-menu__loader" data-icon="loader_min" data-animated="true" aria-hidden="true"></span>
                     </button>
                 </div>
             </div>
@@ -847,6 +871,116 @@
         </div>
     </div>
 
+    <div class="modal-layer modal-layer--settings" data-wysing="settings-modal" hidden>
+        <div class="modal modal--settings" role="dialog" aria-modal="true" aria-labelledby="${uid}-settings-title">
+            <header class="modal__head">
+                <div class="modal__heading">
+                    <span class="modal__icon"><span class="miller-icon" data-icon="settings" aria-hidden="true"></span></span>
+                    <div>
+                        <h2 id="${uid}-settings-title">Configuración</h2>
+                        <p>Personaliza la apariencia y el comportamiento del panel.</p>
+                    </div>
+                </div>
+                <button class="tool" type="button" data-wysing="settings-close" aria-label="Cerrar">
+                    <span class="miller-icon" data-icon="close" aria-hidden="true"></span>
+                </button>
+            </header>
+            <div class="settings">
+                <section class="settings__section" aria-labelledby="${uid}-settings-appearance">
+                    <h3 class="settings__title" id="${uid}-settings-appearance">Apariencia</h3>
+                    <div class="settings__row">
+                        <div class="settings__copy">
+                            <strong>Tema del panel</strong>
+                            <span>Color de la interfaz y del área de trabajo.</span>
+                        </div>
+                        <div class="settings__segmented" role="group" aria-label="Tema del panel" data-wysing="settings-theme">
+                            <button class="settings__segment is-active" type="button" data-theme="dark" aria-pressed="true">Oscuro</button>
+                            <button class="settings__segment" type="button" data-theme="light" aria-pressed="false">Claro</button>
+                            <button class="settings__segment" type="button" data-theme="system" aria-pressed="false">Sistema</button>
+                        </div>
+                    </div>
+                    <div class="settings__row">
+                        <div class="settings__copy">
+                            <strong>Densidad</strong>
+                            <span>Espacio entre los elementos del panel.</span>
+                        </div>
+                        <div class="dropdown dropdown--settings" data-wysing="settings-density" aria-label="Densidad del panel">
+                            <button class="dropdown__trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                                <span class="dropdown__label">Cómoda</span>
+                                <span class="miller-icon dropdown__caret" data-icon="arrow_down" aria-hidden="true"></span>
+                            </button>
+                            <div class="dropdown__menu" role="listbox" hidden>
+                                <button class="dropdown__item" type="button" role="option" data-value="compacta">Compacta</button>
+                                <button class="dropdown__item is-active" type="button" role="option" data-value="comoda">Cómoda</button>
+                                <button class="dropdown__item" type="button" role="option" data-value="amplia">Amplia</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <section class="settings__section" aria-labelledby="${uid}-settings-editor">
+                    <h3 class="settings__title" id="${uid}-settings-editor">Editor</h3>
+                    <div class="settings__row">
+                        <div class="settings__copy">
+                            <strong>Tamaño de fuente</strong>
+                            <span>Tamaño base del texto del documento.</span>
+                        </div>
+                        <div class="settings__range-wrap">
+                            <input class="settings__range" data-wysing="settings-range" type="range" min="12" max="24" step="1" value="16" aria-label="Tamaño de fuente">
+                            <output class="settings__range-value" data-wysing="settings-range-value">16 px</output>
+                        </div>
+                    </div>
+                    <div class="settings__row">
+                        <div class="settings__copy">
+                            <strong>Ancho de página</strong>
+                            <span>Define el espacio disponible para escribir.</span>
+                        </div>
+                        <div class="settings__segmented" role="group" aria-label="Ancho de página" data-wysing="settings-width">
+                            <button class="settings__segment is-active" type="button" data-width="normal" aria-pressed="true">Normal</button>
+                            <button class="settings__segment" type="button" data-width="wide" aria-pressed="false">Amplio</button>
+                        </div>
+                    </div>
+                </section>
+                <section class="settings__section" aria-labelledby="${uid}-settings-behavior">
+                    <h3 class="settings__title" id="${uid}-settings-behavior">Comportamiento</h3>
+                    <div class="settings__row">
+                        <div class="settings__copy">
+                            <strong>Autoguardado</strong>
+                            <span>Guarda los cambios mientras escribes.</span>
+                        </div>
+                        <label class="settings-switch">
+                            <input type="checkbox" checked data-wysing="settings-autosave" aria-label="Autoguardado">
+                            <span class="settings-switch__track"></span>
+                        </label>
+                    </div>
+                    <div class="settings__row">
+                        <div class="settings__copy">
+                            <strong>Confirmar al vaciar</strong>
+                            <span>Pide confirmación antes de borrar el documento.</span>
+                        </div>
+                        <label class="settings-switch">
+                            <input type="checkbox" checked data-wysing="settings-confirm" aria-label="Confirmar al vaciar">
+                            <span class="settings-switch__track"></span>
+                        </label>
+                    </div>
+                    <div class="settings__row">
+                        <div class="settings__copy">
+                            <strong>Animaciones</strong>
+                            <span>Muestra transiciones suaves en el panel.</span>
+                        </div>
+                        <label class="settings-switch">
+                            <input type="checkbox" checked data-wysing="settings-animations" aria-label="Animaciones">
+                            <span class="settings-switch__track"></span>
+                        </label>
+                    </div>
+                </section>
+            </div>
+            <footer class="modal__foot settings__foot">
+                <button class="btn btn--ghost" type="button" data-wysing="settings-reset">Restablecer</button>
+                <button class="btn btn--primary" type="button" data-wysing="settings-done">Listo</button>
+            </footer>
+        </div>
+    </div>
+
     <input type="file" data-wysing="image-input" accept="image/*" hidden>
     <input type="file" data-wysing="image-replace-input" accept="image/*" hidden>
 
@@ -950,6 +1084,19 @@
                 downloadBtn: $('[data-wysing="download-btn"]'),
                 downloadDropdown: $('[data-wysing="download-dropdown"]'),
                 downloadMenu: $('[data-wysing="download-menu"]'),
+                settingsBtn: $('[data-wysing="settings-btn"]'),
+                settingsModal: $('[data-wysing="settings-modal"]'),
+                settingsTheme: $('[data-wysing="settings-theme"]'),
+                settingsClose: $('[data-wysing="settings-close"]'),
+                settingsDone: $('[data-wysing="settings-done"]'),
+                settingsReset: $('[data-wysing="settings-reset"]'),
+                settingsDensity: $('[data-wysing="settings-density"]'),
+                settingsWidth: $('[data-wysing="settings-width"]'),
+                settingsRange: $('[data-wysing="settings-range"]'),
+                settingsRangeValue: $('[data-wysing="settings-range-value"]'),
+                settingsAutosave: $('[data-wysing="settings-autosave"]'),
+                settingsConfirm: $('[data-wysing="settings-confirm"]'),
+                settingsAnimations: $('[data-wysing="settings-animations"]'),
                 printBtn: $('[data-wysing="print-btn"]'),
                 codeBtn: $('[data-wysing="code-btn"]'),
                 codePanel: $('[data-wysing="code-panel"]'),
@@ -964,10 +1111,73 @@
         }
 
         _applyTheme(theme) {
-            const next = theme === 'light' ? 'light' : 'dark';
-            this._theme = next;
+            const pref = theme === 'light' || theme === 'dark' || theme === 'system' ? theme : (theme === 'system' ? 'system' : 'dark');
+            this._themePreference = pref;
+            let resolved = pref;
+            if (pref === 'system') {
+                try { resolved = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; } catch (e) { resolved = 'dark'; }
+            }
+            this._theme = resolved;
             this.root.classList.remove('wysing--dark', 'wysing--light');
-            this.root.classList.add(`wysing--${next}`);
+            this.root.classList.add(`wysing--${resolved}`);
+            this._syncThemeSegments();
+            try { localStorage.setItem('wysing-theme', this._themePreference); } catch (e) { }
+        }
+
+        _syncThemeSegments() {
+            const group = this._el.settingsTheme;
+            if (!group) return;
+            group.querySelectorAll('.settings__segment').forEach((btn) => {
+                const active = btn.dataset.theme === this._themePreference;
+                btn.classList.toggle('is-active', active);
+                btn.setAttribute('aria-pressed', String(active));
+            });
+        }
+
+        _applyDensity(value) {
+            this._density = value || 'comoda';
+            if (!this.root) return;
+            this.root.classList.remove('wysing--density-compacta', 'wysing--density-comoda', 'wysing--density-amplia');
+            this.root.classList.add(`wysing--density-${this._density}`);
+            try { localStorage.setItem('wysing-density', this._density); } catch (e) { }
+            const more = this._el.toolbarMore;
+            const left = this._el.toolbarLeft;
+            const right = this._el.toolbarRight;
+            if (more && left && right && more.parentElement !== right) {
+                right.insertBefore(more, right.firstChild);
+            }
+            window.setTimeout(() => this._updateToolbarOverflow(), 0);
+        }
+
+        _applyPageWidth(value) {
+            this._pageWidth = value || 'normal';
+            if (!this.root) return;
+            this.root.classList.remove('wysing--width-normal', 'wysing--width-wide');
+            this.root.classList.add(`wysing--width-${this._pageWidth}`);
+            this._syncWidthSegments();
+        }
+
+        _syncWidthSegments() {
+            const group = this._el.settingsWidth;
+            if (!group) return;
+            group.querySelectorAll('.settings__segment').forEach((btn) => {
+                const active = btn.dataset.width === this._pageWidth;
+                btn.classList.toggle('is-active', active);
+                btn.setAttribute('aria-pressed', String(active));
+            });
+        }
+
+        _applyEditorFontSize(value) {
+            const px = Math.max(12, Math.min(24, Number(value) || 16));
+            this._editorFontSize = px;
+            if (this._el && this._el.editor) this._el.editor.style.fontSize = `${px}px`;
+            if (this._el && this._el.settingsRangeValue) this._el.settingsRangeValue.textContent = `${px} px`;
+        }
+
+        _applyAnimations(enabled) {
+            this._animations = Boolean(enabled);
+            if (!this.root) return;
+            this.root.classList.toggle('wysing--no-animations', !this._animations);
         }
 
         _setTitleInternal(text) {
@@ -1238,6 +1448,26 @@
             menu.style.top = `${Math.round(rect.bottom + 6)}px`;
         }
 
+        _startDownload(item) {
+            if (this._downloadPending) return;
+            const format = item.dataset.download;
+            const loader = item.querySelector('.download-menu__loader');
+            this._downloadPending = true;
+            item.classList.add('is-loading');
+            item.setAttribute('aria-busy', 'true');
+            if (loader) loader.classList.add('is-visible');
+            window.setTimeout(() => {
+                this._downloadPending = false;
+                item.classList.remove('is-loading');
+                item.removeAttribute('aria-busy');
+                if (loader) loader.classList.remove('is-visible');
+                this._closeDropdowns();
+                if (format === 'word') this._downloadWord();
+                else if (format === 'pdf') this._downloadPdf();
+                else if (format === 'html') this._downloadHtml();
+            }, 2000);
+        }
+
         _confirm(message, onConfirm) {
             this._confirmCallback = typeof onConfirm === 'function' ? onConfirm : null;
             if (this._el.confirmMessage) this._el.confirmMessage.textContent = message;
@@ -1287,7 +1517,7 @@
             window.clearTimeout(this._changeTimer);
             let ok = true;
             const now = new Date();
-            if (this._options.persistence) {
+            if (this._options.persistence && this._autosave) {
                 try {
                     this._saveCurrentDoc();
                     const currentDoc = this._getCurrentDoc();
@@ -1475,15 +1705,53 @@
             };
         }
 
+        _openSettingsModal() {
+            const modal = this._el.settingsModal;
+            if (!modal) return;
+            this._closeModals();
+            window.clearTimeout(this._settingsCloseTimer);
+            this._closePopovers();
+            this._closeDropdowns();
+            this._syncThemeSegments();
+            this._syncWidthSegments();
+            if (this._el.settingsRange) this._el.settingsRange.value = this._editorFontSize;
+            if (this._el.settingsRangeValue) this._el.settingsRangeValue.textContent = `${this._editorFontSize} px`;
+            if (this._el.settingsAutosave) this._el.settingsAutosave.checked = this._autosave;
+            if (this._el.settingsConfirm) this._el.settingsConfirm.checked = this._confirmOnClear;
+            if (this._el.settingsAnimations) this._el.settingsAnimations.checked = this._animations;
+            modal.classList.remove('is-closing', 'is-open');
+            modal.hidden = false;
+            void modal.offsetWidth;
+            modal.classList.add('is-open');
+            if (this._el.settingsClose) this._el.settingsClose.focus();
+        }
+
+        _closeSettingsModal() {
+            const modal = this._el.settingsModal;
+            if (!modal || modal.hidden || modal.classList.contains('is-closing')) return;
+            const restoreFocus = modal.contains(document.activeElement);
+            window.clearTimeout(this._settingsCloseTimer);
+            modal.classList.remove('is-open');
+            modal.classList.add('is-closing');
+            this._settingsCloseTimer = window.setTimeout(() => {
+                modal.hidden = true;
+                modal.classList.remove('is-closing');
+                if (restoreFocus && this._el.settingsBtn) this._el.settingsBtn.focus();
+            }, 200);
+        }
+
         _closeModal(modal) {
+            if (!modal) return;
+            if (modal === this._el.settingsModal) {
+                this._closeSettingsModal();
+                return;
+            }
             if (modal === this._el.confirmModal) this._confirmCallback = null;
             modal.hidden = true;
         }
 
         _closeModals() {
-            this.$$('.modal-layer').forEach((modal) => {
-                modal.hidden = true;
-            });
+            this.$$('.modal-layer').forEach((modal) => this._closeModal(modal));
         }
 
         _openModal(modal) {
@@ -2218,8 +2486,13 @@ ${body}
                     }
                     this._positionImageBar();
                     this._onContentChange();
+                }),
+                density: this._createDropdown(this._el.settingsDensity, (value) => {
+                    this._applyDensity(value);
                 })
             };
+            if (this._dropdowns.density) this._dropdowns.density.value = this._density;
+            this._applyDensity(this._density);
         }
 
         _bindDoc(type, fn, opts) {
@@ -2534,28 +2807,116 @@ ${body}
             el.docsNewBtn.addEventListener('click', () => this._newDocument());
 
             el.clearBtn.addEventListener('click', () => {
-                this._confirm('¿Vaciar el documento? Esta acción no se puede deshacer.', () => {
+                const doClear = () => {
                     this._resetDocument('Documento sin título');
                     this._toast('Documento vaciado');
-                });
+                };
+                if (this._confirmOnClear) {
+                    this._confirm('¿Vaciar el documento? Esta acción no se puede deshacer.', doClear);
+                } else {
+                    doClear();
+                }
             });
 
             el.copyBtn.addEventListener('click', () => this._copyHtml());
             el.downloadBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
+                if (this._downloadPending) return;
                 this._toggleDownloadMenu();
             });
             if (el.downloadMenu) {
                 el.downloadMenu.addEventListener('click', (event) => {
                     const item = event.target.closest('[data-download]');
                     if (!item) return;
-                    this._closeDropdowns();
-                    const format = item.dataset.download;
-                    if (format === 'word') this._downloadWord();
-                    else if (format === 'pdf') this._downloadPdf();
-                    else if (format === 'html') this._downloadHtml();
+                    this._startDownload(item);
                 });
             }
+            if (el.settingsBtn) {
+                el.settingsBtn.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    this._openSettingsModal();
+                });
+            }
+            if (el.settingsModal) {
+                el.settingsModal.addEventListener('click', (event) => {
+                    const segment = event.target.closest('.settings__segment');
+                    if (!segment) return;
+                    const group = segment.closest('.settings__segmented');
+                    if (!group) return;
+                    if (group === el.settingsTheme) {
+                        const theme = segment.dataset.theme;
+                        if (theme) this._applyTheme(theme);
+                        return;
+                    }
+                    if (group === el.settingsWidth) {
+                        const width = segment.dataset.width;
+                        if (width) this._applyPageWidth(width);
+                        return;
+                    }
+                    group.querySelectorAll('.settings__segment').forEach((button) => {
+                        const active = button === segment;
+                        button.classList.toggle('is-active', active);
+                        button.setAttribute('aria-pressed', String(active));
+                    });
+                });
+                if (el.settingsClose) el.settingsClose.addEventListener('click', () => this._closeSettingsModal());
+                if (el.settingsDone) el.settingsDone.addEventListener('click', () => this._closeSettingsModal());
+                if (el.settingsRange) {
+                    el.settingsRange.addEventListener('input', () => {
+                        this._applyEditorFontSize(el.settingsRange.value);
+                    });
+                }
+                if (el.settingsAutosave) {
+                    el.settingsAutosave.addEventListener('change', () => {
+                        this._autosave = el.settingsAutosave.checked;
+                    });
+                }
+                if (el.settingsConfirm) {
+                    el.settingsConfirm.addEventListener('change', () => {
+                        this._confirmOnClear = el.settingsConfirm.checked;
+                    });
+                }
+                if (el.settingsAnimations) {
+                    el.settingsAnimations.addEventListener('change', () => {
+                        this._applyAnimations(el.settingsAnimations.checked);
+                    });
+                }
+                if (el.settingsReset) {
+                    el.settingsReset.addEventListener('click', () => {
+                        if (el.settingsTheme) this._applyTheme('dark');
+                        if (el.settingsWidth) this._applyPageWidth('normal');
+                        if (this._dropdowns && this._dropdowns.density) this._dropdowns.density.value = 'comoda';
+                        if (el.settingsRange) {
+                            el.settingsRange.value = '16';
+                            this._applyEditorFontSize(16);
+                        }
+                        if (el.settingsAutosave) { el.settingsAutosave.checked = true; this._autosave = true; }
+                        if (el.settingsConfirm) { el.settingsConfirm.checked = true; this._confirmOnClear = true; }
+                        if (el.settingsAnimations) { el.settingsAnimations.checked = true; this._applyAnimations(true); }
+                        el.settingsModal.querySelectorAll('.settings__segmented').forEach((group) => {
+                            if (group === el.settingsTheme || group === el.settingsWidth) return;
+                            group.querySelectorAll('.settings__segment').forEach((button, index) => {
+                                const active = index === 0;
+                                button.classList.toggle('is-active', active);
+                                button.setAttribute('aria-pressed', String(active));
+                            });
+                        });
+                        el.settingsModal.querySelectorAll('.settings-switch input').forEach((input) => {
+                            input.checked = true;
+                        });
+                        if (this._dropdowns && this._dropdowns.density) this._dropdowns.density.value = 'comoda';
+                        if (el.settingsRange) {
+                            el.settingsRange.value = '16';
+                            if (el.settingsRangeValue) el.settingsRangeValue.textContent = '16 px';
+                        }
+                    });
+                }
+            }
+            try {
+                const mq = window.matchMedia('(prefers-color-scheme: light)');
+                const onMq = () => { if (this._themePreference === 'system') this._applyTheme('system'); };
+                if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq);
+            } catch (e) { }
             el.printBtn.addEventListener('click', () => window.print());
 
             if (el.toolbarMoreBtn) {
