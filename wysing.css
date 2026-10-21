@@ -154,7 +154,7 @@
     align-items: center;
     gap: 8px;
     min-width: 0;
-    max-width: 560px;
+    max-width: 390px;
     height: 36px;
     padding: 0 10px;
     background: var(--bg-soft);
@@ -568,19 +568,138 @@
 .wysing .workspace {
     flex: 1 1 auto;
     min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     background: var(--paper);
 }
 .wysing .paper {
     flex: 1 1 auto;
-    width: 100%;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     background: var(--paper);
+    overflow-y: auto;
+    overflow-x: hidden;
 }
+.wysing .docs-panel,
+.wysing .code-panel {
+    flex: 0 0 320px;
+    width: 320px;
+    max-width: 40vw;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-soft);
+    border-left: 1px solid var(--chrome-line);
+    min-height: 0;
+}
+.wysing .docs-panel *,
+.wysing .code-panel * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--chrome-line) transparent;
+}
+.wysing .docs-panel ::-webkit-scrollbar,
+.wysing .code-panel ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+/* Editor area keeps default scrollbar */
+.wysing .paper,
+.wysing .workspace {
+    scrollbar-width: auto;
+}
+.wysing .paper ::-webkit-scrollbar,
+.wysing .workspace ::-webkit-scrollbar {
+    all: revert;
+}
+.wysing .paper ::-webkit-scrollbar-thumb,
+.wysing .workspace ::-webkit-scrollbar-thumb {
+    all: revert;
+}
+.wysing .paper ::-webkit-scrollbar-track,
+.wysing .workspace ::-webkit-scrollbar-track {
+    all: revert;
+}
+.wysing .docs-panel[hidden],
+.wysing .code-panel[hidden] {
+    display: none;
+}
+.wysing .docs-panel__head,
+.wysing .code-panel__head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 10px 0 14px;
+    border-bottom: 1px solid var(--chrome-line);
+    color: var(--ink-soft);
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.wysing .docs-panel__head .miller-icon,
+.wysing .code-panel__head .miller-icon {
+    font-size: 15px;
+    color: var(--muted);
+}
+.wysing .docs-panel__head .tool {
+    margin-left: auto;
+    width: 26px;
+    height: 26px;
+}
+.wysing .docs-panel__head .tool .miller-icon {
+    font-size: 14px;
+}
+.wysing .docs-panel__foot {
+    display: none;
+}
+.wysing .code-panel[hidden] {
+    display: none;
+}
+.wysing .code-panel__head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--chrome-line);
+    color: var(--ink-soft);
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.wysing .code-panel__head .miller-icon {
+    font-size: 15px;
+    color: var(--muted);
+}
+.wysing .code-panel__body {
+    flex: 1 1 auto;
+    margin: 0;
+    padding: 0px 24px;
+    overflow: auto;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    text-align: left;
+    text-indent: 0;
+    color: var(--ink-soft);
+    background: transparent;
+}
+.wysing .hl-tag { color: #ffc43a; }
+.wysing .hl-attr { color: #9cdcfe; }
+.wysing .hl-str { color: #ce9178; }
+.wysing .hl-comment { color: #6a9955; font-style: italic; }
+.wysing.wysing--light .hl-tag { color: #800000; }
+.wysing.wysing--light .hl-attr { color: #ff0000; }
+.wysing.wysing--light .hl-str { color: #0000ff; }
+.wysing.wysing--light .hl-comment { color: #008000; }
 .wysing .editor {
     flex: 1 1 auto;
     padding: 56px max(28px, calc((100% - 1040px) / 2)) 180px;
@@ -935,6 +1054,32 @@
     opacity: 1;
     transform: translate(-50%, 0);
 }
+
+/* Scrollbars */
+.wysing * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--chrome-line) transparent;
+}
+.wysing ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+.wysing ::-webkit-scrollbar-track {
+    background: transparent;
+}
+.wysing ::-webkit-scrollbar-thumb {
+    background: var(--chrome-line);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+.wysing ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted);
+    background-clip: padding-box;
+}
+.wysing ::-webkit-scrollbar-corner {
+    background: transparent;
+}
 .wysing.is-preview .toolbar {
     display: none;
 }
@@ -1040,7 +1185,10 @@
     .wysing .toolbar,
     .wysing .statusbar,
     .wysing .modal-layer,
-    .wysing .toast {
+    .wysing .toast,
+    .wysing .docs-panel,
+    .wysing .code-panel,
+    .wysing .image-bar {
         display: none !important;
     }
     .wysing {
@@ -1069,4 +1217,73 @@
         animation-duration: 0.001ms !important;
         transition-duration: 0.001ms !important;
     }
+}
+
+.wysing .docs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 320px;
+    overflow: auto;
+    padding: 12px;
+}
+.wysing .docs-list__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    border: 1px solid var(--chrome-line);
+    border-radius: 8px;
+    background: var(--bg-soft);
+}
+.wysing .docs-list__item.is-active {
+    border-color: #282c33;
+    background: var(--accent-softer);
+}
+.wysing .docs-list__title {
+    flex: 1 1 auto;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    padding: 0;
+}
+.wysing .docs-list__meta {
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 11px;
+    white-space: nowrap;
+}
+.wysing .docs-list__delete {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+}
+.wysing .docs-list__delete:hover {
+    background: var(--danger-hover-bg);
+    color: var(--danger);
+}
+.wysing .docs-list__delete .miller-icon {
+    font-size: 15px;
+}
+.wysing .docs-list__indicator {
+    font-size: 17px;
+    color: var(--muted);
+    margin-left: 6px;
+    flex: 0 0 auto;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.wysing .docs-list__indicator.is-visible {
+    opacity: 1;
 }

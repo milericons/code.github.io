@@ -95,6 +95,11 @@
             this._destroyed = false;
             this._docListeners = [];
             this._winListeners = [];
+            this._docs = [];
+            this._currentDocId = null;
+            this._editing = false;
+            this._editingTimer = 0;
+            this._confirmCallback = null;
 
             if (typeof this._options.onChange === 'function') this._changeCallbacks.push(this._options.onChange);
 
@@ -111,20 +116,19 @@
             this._bindEvents();
             this._applyTheme(this._options.theme);
 
-            let title = this._options.title;
-            let content = this._options.content;
-            let savedAt = null;
-            if (this._options.persistence) {
-                try {
-                    const storedTitle = localStorage.getItem(this._key('title'));
-                    const storedContent = localStorage.getItem(this._key('content'));
-                    const storedDate = localStorage.getItem(this._key('savedAt'));
-                    if (storedTitle !== null) title = storedTitle;
-                    if (storedContent !== null) content = storedContent;
-                    savedAt = storedDate;
-                } catch (error) {
-                }
+            this._loadDocs();
+            if (!this._docs.length) {
+                const doc = this._createDoc(this._options.title, this._options.content);
+                this._docs.push(doc);
+                this._currentDocId = doc.id;
+                if (this._options.persistence) this._persistDocs();
+            } else if (this._currentDocId === null) {
+                this._currentDocId = this._docs[0].id;
             }
+            const current = this._getCurrentDoc();
+            let title = current ? current.title : this._options.title;
+            let content = current ? current.content : this._options.content;
+            let savedAt = current ? current.savedAt : null;
 
             this._setTitleInternal(title);
             this._setContentInternal(content);
@@ -224,6 +228,181 @@
 
         _key(name) {
             return `${this._options.storageKey}:${name}`;
+        }
+
+        _docsKey() {
+            return `${this._options.storageKey}:docs`;
+        }
+
+        _currentKey() {
+            return `${this._options.storageKey}:current`;
+        }
+
+        _createDoc(title, content) {
+            return {
+                id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                title: title == null ? '' : String(title),
+                content: content == null ? '' : String(content),
+                savedAt: null
+            };
+        }
+
+        _getCurrentDoc() {
+            return this._docs.find((doc) => doc.id === this._currentDocId) || null;
+        }
+
+        _loadDocs() {
+            this._docs = [];
+            this._currentDocId = null;
+            if (!this._options.persistence) return;
+            try {
+                const raw = localStorage.getItem(this._docsKey());
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed)) this._docs = parsed;
+                }
+                const current = localStorage.getItem(this._currentKey());
+                if (current) this._currentDocId = current;
+            } catch (error) {
+            }
+            // migrate legacy single document
+            if (!this._docs.length) {
+                try {
+                    const t = localStorage.getItem(this._key('title'));
+                    const c = localStorage.getItem(this._key('content'));
+                    const d = localStorage.getItem(this._key('savedAt'));
+                    if (t !== null || c !== null) {
+                        const doc = this._createDoc(t == null ? this._options.title : t, c == null ? this._options.content : c);
+                        doc.savedAt = d;
+                        this._docs.push(doc);
+                        this._currentDocId = doc.id;
+                    }
+                } catch (error) {
+                }
+            }
+        }
+
+        _persistDocs() {
+            if (!this._options.persistence) return;
+            try {
+                localStorage.setItem(this._docsKey(), JSON.stringify(this._docs));
+                if (this._currentDocId) localStorage.setItem(this._currentKey(), this._currentDocId);
+            } catch (error) {
+            }
+        }
+
+        _saveCurrentDoc() {
+            const doc = this._getCurrentDoc();
+            if (!doc) return;
+            doc.title = this._el.title.value;
+            doc.content = this._el.editor.innerHTML;
+            doc.savedAt = new Date().toISOString();
+        }
+
+        _openDocument(id) {
+            if (id === this._currentDocId) {
+                this._closeModal(this._el.docsModal);
+                return;
+            }
+            this._saveCurrentDoc();
+            this._currentDocId = id;
+            const doc = this._getCurrentDoc();
+            if (doc) {
+                this._setTitleInternal(doc.title);
+                this._setContentInternal(doc.content);
+                if (doc.savedAt) {
+                    const date = new Date(doc.savedAt);
+                    if (!Number.isNaN(date.getTime())) this._el.savedAt.textContent = formatTime(date);
+                } else {
+                    this._el.saveLabel.textContent = 'Listo';
+                }
+            }
+            this._persistDocs();
+            this._updateStats();
+            this._refreshToolbar();
+            this._updateCodeOutput();
+            this._renderDocsList();
+        }
+
+        _newDocument() {
+            this._saveCurrentDoc();
+            const doc = this._createDoc('Documento sin título', '');
+            this._docs.push(doc);
+            this._currentDocId = doc.id;
+            this._setTitleInternal(doc.title);
+            this._setContentInternal(doc.content);
+            this._el.saveLabel.textContent = 'Listo';
+            this._persistDocs();
+            this._updateStats();
+            this._refreshToolbar();
+            this._updateCodeOutput();
+            this._renderDocsList();
+        }
+
+        _deleteDocument(id) {
+            if (this._docs.length <= 1) {
+                this._toast('No se puede eliminar el último documento');
+                return;
+            }
+            const index = this._docs.findIndex((doc) => doc.id === id);
+            if (index === -1) return;
+            const wasCurrent = id === this._currentDocId;
+            this._docs.splice(index, 1);
+            if (wasCurrent) {
+                this._currentDocId = this._docs[Math.max(0, index - 1)].id;
+                const doc = this._getCurrentDoc();
+                this._setTitleInternal(doc.title);
+                this._setContentInternal(doc.content);
+                if (doc.savedAt) {
+                    const date = new Date(doc.savedAt);
+                    if (!Number.isNaN(date.getTime())) this._el.savedAt.textContent = formatTime(date);
+                } else {
+                    this._el.saveLabel.textContent = 'Listo';
+                }
+            }
+            this._persistDocs();
+            this._updateStats();
+            this._refreshToolbar();
+            this._updateCodeOutput();
+            this._renderDocsList();
+        }
+
+        _renderDocsList() {
+            const container = this._el.docsList;
+            if (!container) return;
+            container.innerHTML = '';
+            this._docs.forEach((doc) => {
+                const item = document.createElement('div');
+                item.className = 'docs-list__item' + (doc.id === this._currentDocId ? ' is-active' : '');
+                const title = document.createElement('button');
+                title.type = 'button';
+                title.className = 'docs-list__title';
+                title.textContent = doc.title || 'Documento sin título';
+                title.addEventListener('click', () => this._openDocument(doc.id));
+
+                let indicator = null;
+                if (doc.id === this._currentDocId) {
+                    indicator = document.createElement('span');
+                    indicator.className = 'miller-icon docs-list__indicator';
+                    indicator.setAttribute('data-icon', 'file_text');
+                    indicator.setAttribute('data-animated', 'true');
+                    indicator.setAttribute('aria-hidden', 'true');
+                    indicator.classList.toggle('is-visible', this._editing);
+                }
+                const del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'docs-list__delete';
+                del.setAttribute('aria-label', 'Eliminar documento');
+                del.innerHTML = '<span class="miller-icon" data-icon="delete" aria-hidden="true"></span>';
+                del.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    this._confirm('¿Eliminar este documento?', () => this._deleteDocument(doc.id));
+                });
+                item.appendChild(title);
+                if (indicator) item.appendChild(indicator);
+                item.appendChild(del);
+                container.appendChild(item);
+            });
         }
 
         _buildDOM() {
@@ -438,8 +617,14 @@
         <span class="toolbar__spacer" aria-hidden="true"></span>
 
         <div class="toolbar__group">
+            <button class="tool" data-wysing="docs-btn" type="button" title="Historial" aria-label="Historial">
+                <span class="miller-icon" data-icon="history" aria-hidden="true"></span>
+            </button>
             <button class="tool" data-wysing="print-btn" type="button" title="Imprimir" aria-label="Imprimir">
                 <span class="miller-icon" data-icon="printer" aria-hidden="true"></span>
+            </button>
+            <button class="tool" data-wysing="code-btn" type="button" title="Ver código HTML" aria-label="Ver código HTML" aria-pressed="false">
+                <span class="miller-icon" data-icon="code" aria-hidden="true"></span>
             </button>
             <button class="tool tool--danger" data-wysing="clear-btn" type="button" title="Vaciar documento" aria-label="Vaciar documento">
                 <span class="miller-icon" data-icon="delete" aria-hidden="true"></span>
@@ -451,6 +636,26 @@
         <div class="paper" data-wysing="paper">
             <article class="editor" data-wysing="editor" contenteditable="true" spellcheck="${spellcheck}" data-placeholder="${placeholder}" aria-label="Área de edición"></article>
         </div>
+        <aside class="docs-panel" data-wysing="docs-panel" hidden>
+            <header class="docs-panel__head">
+                <span class="miller-icon" data-icon="history" aria-hidden="true"></span>
+                <span>Historial</span>
+                <button class="tool" type="button" data-wysing="docs-panel-close" aria-label="Cerrar">
+                    <span class="miller-icon" data-icon="close" aria-hidden="true"></span>
+                </button>
+            </header>
+            <div class="docs-list" data-wysing="docs-list"></div>
+            <footer class="docs-panel__foot">
+                <button class="btn btn--primary btn--wide" type="button" data-wysing="docs-new">Nuevo documento</button>
+            </footer>
+        </aside>
+        <aside class="code-panel" data-wysing="code-panel" hidden>
+            <header class="code-panel__head">
+                <span class="miller-icon" data-icon="code" aria-hidden="true"></span>
+                <span>Código HTML</span>
+            </header>
+            <pre class="code-panel__body"><code data-wysing="code-output"></code></pre>
+        </aside>
     </main>
 
     <footer class="statusbar">
@@ -529,6 +734,50 @@
             <footer class="modal__foot">
                 <button class="btn btn--ghost" type="button" data-wysing-close="image">Cancelar</button>
                 <button class="btn btn--primary" type="button" data-wysing="image-save">Insertar imagen</button>
+            </footer>
+        </div>
+    </div>
+
+    <div class="modal-layer" data-wysing="docs-modal" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="${uid}-docs-title">
+            <header class="modal__head">
+                <div class="modal__heading">
+                    <span class="modal__icon"><span class="miller-icon" data-icon="file_text" aria-hidden="true"></span></span>
+                    <div>
+                        <h2 id="${uid}-docs-title">Historial</h2>
+                        <p>Selecciona un documento para abrirlo.</p>
+                    </div>
+                </div>
+                <button class="tool" type="button" data-wysing="docs-close" aria-label="Cerrar">
+                    <span class="miller-icon" data-icon="close" aria-hidden="true"></span>
+                </button>
+            </header>
+            <div class="docs-list" data-wysing="docs-list"></div>
+            <footer class="modal__foot">
+                <button class="btn btn--ghost" type="button" data-wysing-close="docs">Cerrar</button>
+                <button class="btn btn--primary" type="button" data-wysing="docs-new">Nuevo documento</button>
+            </footer>
+        </div>
+    </div>
+
+    <div class="modal-layer" data-wysing="confirm-modal" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="${uid}-confirm-title">
+            <header class="modal__head">
+                <div class="modal__heading">
+                    <span class="modal__icon"><span class="miller-icon" data-icon="error_warning" aria-hidden="true"></span></span>
+                    <div>
+                        <h2 id="${uid}-confirm-title">Confirmar</h2>
+                        <p>Esta acción no se puede deshacer.</p>
+                    </div>
+                </div>
+                <button class="tool" type="button" data-wysing="confirm-close" aria-label="Cerrar">
+                    <span class="miller-icon" data-icon="close" aria-hidden="true"></span>
+                </button>
+            </header>
+            <p class="confirm__message" data-wysing="confirm-message"></p>
+            <footer class="modal__foot">
+                <button class="btn btn--ghost" type="button" data-wysing="confirm-cancel">Cancelar</button>
+                <button class="btn btn--primary" type="button" data-wysing="confirm-ok">Confirmar</button>
             </footer>
         </div>
     </div>
@@ -617,9 +866,22 @@
                 imageReplaceBtn: $('[data-wysing="image-replace"]'),
                 previewBtn: $('[data-wysing="preview-btn"]'),
                 newBtn: $('[data-wysing="new-btn"]'),
+                docsBtn: $('[data-wysing="docs-btn"]'),
+                confirmModal: $('[data-wysing="confirm-modal"]'),
+                confirmMessage: $('[data-wysing="confirm-message"]'),
+                confirmCancel: $('[data-wysing="confirm-cancel"]'),
+                confirmOk: $('[data-wysing="confirm-ok"]'),
+                confirmClose: $('[data-wysing="confirm-close"]'),
+                docsPanel: $('[data-wysing="docs-panel"]'),
+                docsPanelClose: $('[data-wysing="docs-panel-close"]'),
+                docsList: $('[data-wysing="docs-list"]'),
+                docsNewBtn: $('[data-wysing="docs-new"]'),
                 copyBtn: $('[data-wysing="copy-btn"]'),
                 downloadBtn: $('[data-wysing="download-btn"]'),
                 printBtn: $('[data-wysing="print-btn"]'),
+                codeBtn: $('[data-wysing="code-btn"]'),
+                codePanel: $('[data-wysing="code-panel"]'),
+                codeOutput: $('[data-wysing="code-output"]'),
                 clearBtn: $('[data-wysing="clear-btn"]'),
                 toast: $('[data-wysing="toast"]'),
                 blockDropdown: $('[data-wysing="block-dropdown"]'),
@@ -646,6 +908,7 @@
             this._el.editor.innerHTML = html;
             this._prepareLinks();
             this._updateStats();
+            this._updateCodeOutput();
         }
 
         _toast(message) {
@@ -687,6 +950,71 @@
             this._el.readTime.textContent = `${minutes} min de lectura`;
         }
 
+        _updateCodeOutput() {
+            if (!this._el.codeOutput) return;
+            const normalized = this._el.editor.innerHTML
+                .split('\n')
+                .map((line) => line.trimStart())
+                .join('\n')
+                .replace(/\n{3,}/g, '\n\n');
+            this._el.codeOutput.innerHTML = this._highlightHtml(normalized);
+        }
+
+        _highlightHtml(value) {
+            const escaped = escapeHtml(value);
+            return escaped.replace(/(&lt;!--[\s\S]*?--&gt;)|(&lt;\/?[A-Za-z][\w:-]*[\s\S]*?&gt;)/g, (tag) => {
+                if (tag.startsWith('&lt;!--')) return `<span class="hl-comment">${tag}</span>`;
+                let inner = tag;
+                inner = inner.replace(/\s([A-Za-z_][\w:-]*)(\s*=\s*)/g, ' <span class="hl-attr">$1</span>$2');
+                inner = inner.replace(/(&quot;[^&]*?&quot;)|(&#39;[^&]*?&#39;)/g, '<span class="hl-str">$&</span>');
+                inner = inner.replace(/^(&lt;\/?)([A-Za-z][\w:-]*)/, '$1<span class="hl-tag">$2</span>');
+                return inner;
+            });
+        }
+
+        _setCodePanel(enabled) {
+            if (!this._el.codePanel) return;
+            this._el.codePanel.hidden = !enabled;
+            if (this._el.codeBtn) {
+                this._el.codeBtn.classList.toggle('is-active', enabled);
+                this._el.codeBtn.setAttribute('aria-pressed', String(enabled));
+            }
+            if (enabled) this._updateCodeOutput();
+        }
+
+        _setDocsPanel(enabled) {
+            if (!this._el.docsPanel) return;
+            this._el.docsPanel.hidden = !enabled;
+            if (this._el.docsBtn) {
+                this._el.docsBtn.classList.toggle('is-active', enabled);
+                this._el.docsBtn.setAttribute('aria-pressed', String(enabled));
+            }
+            if (enabled) this._renderDocsList();
+        }
+
+        _confirm(message, onConfirm) {
+            this._confirmCallback = typeof onConfirm === 'function' ? onConfirm : null;
+            if (this._el.confirmMessage) this._el.confirmMessage.textContent = message;
+            this._openModal(this._el.confirmModal);
+        }
+
+        _setEditing(value) {
+            this._editing = Boolean(value);
+            window.clearTimeout(this._editingTimer);
+            if (this._editing) {
+                this._editingTimer = window.setTimeout(() => {
+                    this._editing = false;
+                    this._updateDocsIndicator();
+                }, 2000);
+            }
+            this._updateDocsIndicator();
+        }
+
+        _updateDocsIndicator() {
+            const indicator = this._el.docsList ? this._el.docsList.querySelector('.docs-list__indicator') : null;
+            if (indicator) indicator.classList.toggle('is-visible', this._editing);
+        }
+
         _emitChange() {
             const html = this._el.editor.innerHTML;
             const title = this._el.title.value;
@@ -712,12 +1040,13 @@
         _saveNow() {
             window.clearTimeout(this._changeTimer);
             let ok = true;
+            const now = new Date();
             if (this._options.persistence) {
                 try {
-                    const now = new Date();
-                    localStorage.setItem(this._key('title'), this._el.title.value);
-                    localStorage.setItem(this._key('content'), this._el.editor.innerHTML);
-                    localStorage.setItem(this._key('savedAt'), now.toISOString());
+                    this._saveCurrentDoc();
+                    const currentDoc = this._getCurrentDoc();
+                    if (currentDoc) currentDoc.savedAt = now.toISOString();
+                    this._persistDocs();
                     this._el.savedAt.textContent = formatTime(now);
                     this._setSaveState(false);
                 } catch (error) {
@@ -726,7 +1055,8 @@
                     this._toast('No se pudo guardar: el documento es demasiado grande.');
                 }
             } else {
-                this._el.savedAt.textContent = formatTime(new Date());
+                this._saveCurrentDoc();
+                this._el.savedAt.textContent = formatTime(now);
                 this._setSaveState(false);
             }
             this._emitChange();
@@ -755,6 +1085,8 @@
             this._updateStats();
             this._scheduleChange();
             this._refreshToolbar();
+            if (this._el.codePanel && !this._el.codePanel.hidden) this._updateCodeOutput();
+            this._setEditing(true);
         }
 
         _refreshToolbar() {
@@ -897,6 +1229,7 @@
         }
 
         _closeModal(modal) {
+            if (modal === this._el.confirmModal) this._confirmCallback = null;
             modal.hidden = true;
         }
 
@@ -1510,7 +1843,7 @@ ${body}
             this.$$('[data-wysing-close]', this.root).forEach((button) => {
                 button.addEventListener('click', () => {
                     const which = button.dataset.wysingClose;
-                    const modal = which === 'link' ? el.linkModal : which === 'image' ? el.imageModal : null;
+                    const modal = which === 'link' ? el.linkModal : which === 'image' ? el.imageModal : which === 'docs' ? el.docsModal : which === 'confirm' ? el.confirmModal : null;
                     if (modal) this._closeModal(modal);
                 });
             });
@@ -1598,7 +1931,10 @@ ${body}
                 }
             });
 
-            el.title.addEventListener('input', () => this._scheduleChange());
+            el.title.addEventListener('input', () => {
+                this._scheduleChange();
+                this._setEditing(true);
+            });
             el.title.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') {
                     event.preventDefault();
@@ -1611,22 +1947,37 @@ ${body}
             });
 
             el.newBtn.addEventListener('click', () => {
-                if (window.confirm('¿Crear un documento nuevo? Se reemplazará el contenido actual.')) {
+                this._confirm('¿Crear un documento nuevo? Se reemplazará el contenido actual.', () => {
                     this._resetDocument('Documento sin título');
                     this._toast('Documento nuevo');
-                }
+                });
             });
 
+            if (el.confirmCancel) el.confirmCancel.addEventListener('click', () => this._closeModal(el.confirmModal));
+            if (el.confirmClose) el.confirmClose.addEventListener('click', () => this._closeModal(el.confirmModal));
+            if (el.confirmOk) el.confirmOk.addEventListener('click', () => {
+                this._closeModal(el.confirmModal);
+                if (typeof this._confirmCallback === 'function') this._confirmCallback();
+                this._confirmCallback = null;
+            });
+
+            el.docsBtn.addEventListener('click', () => this._setDocsPanel(el.docsPanel.hidden));
+
+            if (el.docsPanelClose) el.docsPanelClose.addEventListener('click', () => this._setDocsPanel(false));
+
+            el.docsNewBtn.addEventListener('click', () => this._newDocument());
+
             el.clearBtn.addEventListener('click', () => {
-                if (window.confirm('¿Vaciar el documento? Esta acción no se puede deshacer.')) {
+                this._confirm('¿Vaciar el documento? Esta acción no se puede deshacer.', () => {
                     this._resetDocument('Documento sin título');
                     this._toast('Documento vaciado');
-                }
+                });
             });
 
             el.copyBtn.addEventListener('click', () => this._copyHtml());
             el.downloadBtn.addEventListener('click', () => this._downloadHtml());
             el.printBtn.addEventListener('click', () => window.print());
+            el.codeBtn.addEventListener('click', () => this._setCodePanel(el.codePanel.hidden));
 
             this._bindDoc('keydown', (event) => {
                 if (!this.root.contains(event.target) && !event.target.closest('.modal-layer')) {
@@ -1652,9 +2003,8 @@ ${body}
                 window.clearTimeout(this._changeTimer);
                 if (!this._options.persistence) return;
                 try {
-                    localStorage.setItem(this._key('title'), el.title.value);
-                    localStorage.setItem(this._key('content'), el.editor.innerHTML);
-                    localStorage.setItem(this._key('savedAt'), new Date().toISOString());
+                    this._saveCurrentDoc();
+                    this._persistDocs();
                 } catch (error) {
                 }
             });
