@@ -100,6 +100,8 @@
             this._editing = false;
             this._editingTimer = 0;
             this._confirmCallback = null;
+            this._toolbarUnits = [];
+            this._toolbarGroups = [];
 
             if (typeof this._options.onChange === 'function') this._changeCallbacks.push(this._options.onChange);
 
@@ -144,6 +146,7 @@
 
             this._updateStats();
             this._refreshToolbar();
+            this._initToolbarOverflow();
         }
 
         getContent() {
@@ -218,6 +221,10 @@
             this._destroyed = true;
             window.clearTimeout(this._changeTimer);
             window.clearTimeout(this._toastTimer);
+            if (this._toolbarResizeObserver) {
+                this._toolbarResizeObserver.disconnect();
+                this._toolbarResizeObserver = null;
+            }
             this._docListeners.forEach(({ target, type, fn, opts }) => target.removeEventListener(type, fn, opts));
             this._winListeners.forEach(({ target, type, fn, opts }) => target.removeEventListener(type, fn, opts));
             this._docListeners = [];
@@ -473,6 +480,7 @@
     </header>
 
     <div class="toolbar" data-wysing="toolbar" role="toolbar" aria-label="Herramientas de formato">
+        <div class="toolbar__left" data-wysing="toolbar-left">
         <div class="toolbar__group">
             <button class="tool" type="button" data-cmd="undo" title="Deshacer (Ctrl+Z)" aria-label="Deshacer">
                 <span class="miller-icon" data-icon="undo" aria-hidden="true"></span>
@@ -614,10 +622,17 @@
             </button>
         </div>
 
-        <span class="toolbar__spacer" aria-hidden="true"></span>
+        </div>
+        <div class="toolbar__right" data-wysing="toolbar-right">
+            <div class="toolbar__more" data-wysing="toolbar-more" hidden>
+                <button class="tool" data-wysing="toolbar-more-btn" type="button" title="Más" aria-label="Más" aria-expanded="false" aria-haspopup="true">
+                    <span class="miller-icon" data-icon="more" aria-hidden="true"></span>
+                </button>
+                <div class="toolbar__more-menu" data-wysing="toolbar-more-menu" hidden></div>
+            </div>
 
-        <div class="toolbar__group">
-            <button class="tool" data-wysing="docs-btn" type="button" title="Historial" aria-label="Historial">
+            <div class="toolbar__group">
+                <button class="tool" data-wysing="docs-btn" type="button" title="Historial" aria-label="Historial">
                 <span class="miller-icon" data-icon="history" aria-hidden="true"></span>
             </button>
             <button class="tool" data-wysing="print-btn" type="button" title="Imprimir" aria-label="Imprimir">
@@ -629,6 +644,7 @@
             <button class="tool tool--danger" data-wysing="clear-btn" type="button" title="Vaciar documento" aria-label="Vaciar documento">
                 <span class="miller-icon" data-icon="delete" aria-hidden="true"></span>
             </button>
+        </div>
         </div>
     </div>
 
@@ -837,6 +853,11 @@
                 charCount: $('[data-wysing="char-count"]'),
                 readTime: $('[data-wysing="read-time"]'),
                 toolbar: $('[data-wysing="toolbar"]'),
+                toolbarLeft: $('[data-wysing="toolbar-left"]'),
+                toolbarRight: $('[data-wysing="toolbar-right"]'),
+                toolbarMore: $('[data-wysing="toolbar-more"]'),
+                toolbarMoreBtn: $('[data-wysing="toolbar-more-btn"]'),
+                toolbarMoreMenu: $('[data-wysing="toolbar-more-menu"]'),
                 workspace: $('[data-wysing="workspace"]'),
                 textColorBtn: $('[data-wysing="text-color-btn"]'),
                 textColorPop: $('[data-wysing="text-color-pop"]'),
@@ -990,6 +1011,163 @@
                 this._el.docsBtn.setAttribute('aria-pressed', String(enabled));
             }
             if (enabled) this._renderDocsList();
+        }
+
+        _initToolbarOverflow() {
+            const toolbar = this._el.toolbar;
+            const more = this._el.toolbarMore;
+            const left = this._el.toolbarLeft || toolbar;
+            const right = this._el.toolbarRight;
+            if (!toolbar || !more || !left || !right) return;
+            this._toolbarGroups = Array.from(left.children).filter((child) => child.classList.contains('toolbar__group'));
+            this._toolbarUnits = [];
+            Array.from(left.children).forEach((child) => {
+                if (child.classList.contains('toolbar__group')) {
+                    const fixed = child.querySelector('.dropdown, .toolbar__lead');
+                    if (fixed) {
+                        this._toolbarUnits.push({ el: child, parent: left, next: child.nextSibling });
+                        return;
+                    }
+                    Array.from(child.children).forEach((unitEl) => {
+                        this._toolbarUnits.push({ el: unitEl, parent: child, next: unitEl.nextSibling });
+                    });
+                    return;
+                }
+                this._toolbarUnits.push({ el: child, parent: left, next: child.nextSibling });
+            });
+            this._trailingGroup = right.querySelector('.toolbar__group');
+            window.setTimeout(() => this._updateToolbarOverflow(), 0);
+            window.setTimeout(() => this._updateToolbarOverflow(), 250);
+            const onResize = () => this._updateToolbarOverflow();
+            window.addEventListener('resize', onResize);
+            this._winListeners.push({ target: window, type: 'resize', fn: onResize, opts: undefined });
+            toolbar.addEventListener('scroll', onResize, { passive: true });
+            if (typeof ResizeObserver !== 'undefined') {
+                this._toolbarResizeObserver = new ResizeObserver(onResize);
+                this._toolbarResizeObserver.observe(toolbar);
+                this._toolbarResizeObserver.observe(left);
+                this._toolbarResizeObserver.observe(right);
+            }
+        }
+
+        _updateToolbarOverflow() {
+            const toolbar = this._el.toolbar;
+            const left = this._el.toolbarLeft || toolbar;
+            const right = this._el.toolbarRight;
+            const more = this._el.toolbarMore;
+            const menu = this._el.toolbarMoreMenu;
+            const trailingGroup = this._trailingGroup;
+            if (!toolbar || !left || !right || !more || !menu) return;
+            const menuWasOpen = !menu.hidden;
+
+            if (!this._toolbarMenuGroup || !menu.contains(this._toolbarMenuGroup)) {
+                this._toolbarMenuGroup = document.createElement('div');
+                this._toolbarMenuGroup.className = 'toolbar__group';
+                menu.appendChild(this._toolbarMenuGroup);
+            }
+            const menuGroup = this._toolbarMenuGroup;
+
+            this._toolbarGroups.forEach((group) => {
+                group.hidden = false;
+            });
+            for (let i = this._toolbarUnits.length - 1; i >= 0; i--) {
+                const unit = this._toolbarUnits[i];
+                const el = unit.el;
+                if (el.parentNode === unit.parent && el.nextSibling === unit.next) continue;
+                unit.parent.insertBefore(el, unit.next);
+            }
+            if (trailingGroup && trailingGroup.parentNode !== right) {
+                right.insertBefore(trailingGroup, more);
+            }
+            while (menuGroup.firstChild) menuGroup.removeChild(menuGroup.firstChild);
+            more.hidden = true;
+            menu.hidden = true;
+            if (this._el.toolbarMoreBtn) this._el.toolbarMoreBtn.setAttribute('aria-expanded', 'false');
+
+            const isSep = (el) => Boolean(el && el.classList && el.classList.contains('toolbar__sep'));
+            const visibleChildren = () => Array.from(left.children).filter((child) => !child.hidden);
+            const leftFits = () => left.scrollWidth <= left.clientWidth + 1;
+            const hideEmptyGroups = () => {
+                this._toolbarGroups.forEach((group) => {
+                    if (group.parentNode !== left) return;
+                    const hasContent = group.querySelector('.tool:not([hidden]), .dropdown, .tool-wrap, .toolbar__lead');
+                    group.hidden = !hasContent;
+                });
+            };
+            const moveToMenu = (el) => {
+                menuGroup.appendChild(el);
+            };
+            const cleanupEdges = () => {
+                let visible = visibleChildren();
+                while (isSep(visible[0])) {
+                    moveToMenu(visible[0]);
+                    visible = visibleChildren();
+                }
+                while (isSep(visible[visible.length - 1])) {
+                    moveToMenu(visible[visible.length - 1]);
+                    visible = visibleChildren();
+                }
+            };
+            const reorderMenu = () => {
+                this._toolbarUnits.forEach((unit) => {
+                    if (unit.el.parentNode === menuGroup) menuGroup.appendChild(unit.el);
+                });
+            };
+
+            if (leftFits()) return;
+
+            more.hidden = false;
+
+            for (let i = this._toolbarUnits.length - 1; i >= 0; i--) {
+                if (leftFits()) break;
+                const unit = this._toolbarUnits[i];
+                if (unit.el.parentNode === menuGroup) continue;
+                moveToMenu(unit.el);
+                hideEmptyGroups();
+                cleanupEdges();
+            }
+            cleanupEdges();
+            reorderMenu();
+
+            let restoreFrom = this._toolbarUnits.length;
+            for (let i = 0; i < this._toolbarUnits.length; i++) {
+                if (this._toolbarUnits[i].el.parentNode === menuGroup) {
+                    restoreFrom = i;
+                    break;
+                }
+            }
+            for (let i = restoreFrom; i < this._toolbarUnits.length; i++) {
+                const unit = this._toolbarUnits[i];
+                if (unit.el.parentNode !== menuGroup) continue;
+                if (unit.parent !== left) unit.parent.hidden = false;
+                unit.parent.appendChild(unit.el);
+                if (left.scrollWidth > left.clientWidth + 1) {
+                    menuGroup.appendChild(unit.el);
+                    hideEmptyGroups();
+                    break;
+                }
+            }
+            cleanupEdges();
+            reorderMenu();
+
+            if (!menuGroup.querySelector('.tool, .dropdown, .tool-wrap')) {
+                more.hidden = true;
+                menu.hidden = true;
+                if (this._el.toolbarMoreBtn) this._el.toolbarMoreBtn.setAttribute('aria-expanded', 'false');
+            } else if (menuWasOpen) {
+                menu.hidden = false;
+                this._positionToolbarMoreMenu();
+                if (this._el.toolbarMoreBtn) this._el.toolbarMoreBtn.setAttribute('aria-expanded', 'true');
+            }
+        }
+
+        _positionToolbarMoreMenu() {
+            const btn = this._el.toolbarMoreBtn;
+            const menu = this._el.toolbarMoreMenu;
+            if (!btn || !menu) return;
+            const rect = btn.getBoundingClientRect();
+            menu.style.top = `${Math.round(rect.bottom + 6)}px`;
+            menu.style.left = `${Math.round(Math.max(8, rect.right - (menu.offsetWidth || 220)))}px`;
         }
 
         _confirm(message, onConfirm) {
@@ -1977,6 +2155,24 @@ ${body}
             el.copyBtn.addEventListener('click', () => this._copyHtml());
             el.downloadBtn.addEventListener('click', () => this._downloadHtml());
             el.printBtn.addEventListener('click', () => window.print());
+
+            if (el.toolbarMoreBtn) {
+                el.toolbarMoreBtn.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    if (!el.toolbarMoreMenu) return;
+                    const open = el.toolbarMoreMenu.hidden;
+                    if (open) this._positionToolbarMoreMenu();
+                    el.toolbarMoreMenu.hidden = !open;
+                    el.toolbarMoreBtn.setAttribute('aria-expanded', String(open));
+                });
+            }
+
+            this._bindDoc('click', (event) => {
+                if (el.toolbarMoreMenu && !event.target.closest('[data-wysing="toolbar-more"]')) {
+                    el.toolbarMoreMenu.hidden = true;
+                    if (el.toolbarMoreBtn) el.toolbarMoreBtn.setAttribute('aria-expanded', 'false');
+                }
+            });
             el.codeBtn.addEventListener('click', () => this._setCodePanel(el.codePanel.hidden));
 
             this._bindDoc('keydown', (event) => {
