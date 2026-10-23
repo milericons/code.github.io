@@ -138,10 +138,21 @@
                 if (savedDensity) this._density = savedDensity;
             } catch (e) { }
             this._pageWidth = 'normal';
+            try {
+                const savedWidth = localStorage.getItem('wysing-page-width');
+                if (savedWidth) this._pageWidth = savedWidth;
+            } catch (e) { }
             this._editorFontSize = 16;
+            try {
+                const savedSize = localStorage.getItem('wysing-editor-font-size');
+                if (savedSize) this._editorFontSize = Number(savedSize) || 16;
+            } catch (e) { }
             this._autosave = true;
+            try { const v = localStorage.getItem('wysing-autosave'); if (v !== null) this._autosave = v === 'true'; } catch (e) { }
             this._confirmOnClear = true;
+            try { const v = localStorage.getItem('wysing-confirm-on-clear'); if (v !== null) this._confirmOnClear = v === 'true'; } catch (e) { }
             this._animations = true;
+            try { const v = localStorage.getItem('wysing-animations'); if (v !== null) this._animations = v === 'true'; } catch (e) { }
             this._changeCallbacks = [];
             this._savedRange = null;
             this._selectedImage = null;
@@ -1155,6 +1166,7 @@
             this.root.classList.remove('wysing--width-normal', 'wysing--width-wide');
             this.root.classList.add(`wysing--width-${this._pageWidth}`);
             this._syncWidthSegments();
+            try { localStorage.setItem('wysing-page-width', this._pageWidth); } catch (e) { }
         }
 
         _syncWidthSegments() {
@@ -1172,12 +1184,14 @@
             this._editorFontSize = px;
             if (this._el && this._el.editor) this._el.editor.style.fontSize = `${px}px`;
             if (this._el && this._el.settingsRangeValue) this._el.settingsRangeValue.textContent = `${px} px`;
+            try { localStorage.setItem('wysing-editor-font-size', String(px)); } catch (e) { }
         }
 
         _applyAnimations(enabled) {
             this._animations = Boolean(enabled);
             if (!this.root) return;
             this.root.classList.toggle('wysing--no-animations', !this._animations);
+            try { localStorage.setItem('wysing-animations', String(this._animations)); } catch (e) { }
         }
 
         _setTitleInternal(text) {
@@ -2866,21 +2880,23 @@ ${body}
                         this._applyEditorFontSize(el.settingsRange.value);
                     });
                 }
-                if (el.settingsAutosave) {
-                    el.settingsAutosave.addEventListener('change', () => {
-                        this._autosave = el.settingsAutosave.checked;
-                    });
-                }
-                if (el.settingsConfirm) {
-                    el.settingsConfirm.addEventListener('change', () => {
-                        this._confirmOnClear = el.settingsConfirm.checked;
-                    });
-                }
-                if (el.settingsAnimations) {
-                    el.settingsAnimations.addEventListener('change', () => {
-                        this._applyAnimations(el.settingsAnimations.checked);
-                    });
-                }
+                    if (el.settingsAutosave) {
+                        el.settingsAutosave.addEventListener('change', () => {
+                            this._autosave = el.settingsAutosave.checked;
+                            try { localStorage.setItem('wysing-autosave', String(this._autosave)); } catch (e) { }
+                        });
+                    }
+                    if (el.settingsConfirm) {
+                        el.settingsConfirm.addEventListener('change', () => {
+                            this._confirmOnClear = el.settingsConfirm.checked;
+                            try { localStorage.setItem('wysing-confirm-on-clear', String(this._confirmOnClear)); } catch (e) { }
+                        });
+                    }
+                    if (el.settingsAnimations) {
+                        el.settingsAnimations.addEventListener('change', () => {
+                            this._applyAnimations(el.settingsAnimations.checked);
+                        });
+                    }
                 if (el.settingsReset) {
                     el.settingsReset.addEventListener('click', () => {
                         if (el.settingsTheme) this._applyTheme('dark');
@@ -2890,8 +2906,8 @@ ${body}
                             el.settingsRange.value = '16';
                             this._applyEditorFontSize(16);
                         }
-                        if (el.settingsAutosave) { el.settingsAutosave.checked = true; this._autosave = true; }
-                        if (el.settingsConfirm) { el.settingsConfirm.checked = true; this._confirmOnClear = true; }
+                        if (el.settingsAutosave) { el.settingsAutosave.checked = true; this._autosave = true; try { localStorage.setItem('wysing-autosave', 'true'); } catch (e) { } }
+                        if (el.settingsConfirm) { el.settingsConfirm.checked = true; this._confirmOnClear = true; try { localStorage.setItem('wysing-confirm-on-clear', 'true'); } catch (e) { } }
                         if (el.settingsAnimations) { el.settingsAnimations.checked = true; this._applyAnimations(true); }
                         el.settingsModal.querySelectorAll('.settings__segmented').forEach((group) => {
                             if (group === el.settingsTheme || group === el.settingsWidth) return;
