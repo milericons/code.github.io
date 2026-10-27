@@ -110,6 +110,157 @@
         }
     }
 
+    const INLINE_TAGS = new Set([
+        'a', 'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'del', 'ins',
+        'code', 'span', 'img', 'br', 'mark', 'small', 'sub', 'sup', 'kbd', 'font', 'q', 'cite', 'time'
+    ]);
+
+    function htmlToMarkdown(html) {
+        const root = document.createElement('div');
+        root.innerHTML = html;
+
+        function inlineWrapped(node) {
+            const holder = document.createElement('span');
+            holder.appendChild(node.cloneNode(true));
+            return inlineMarkdown(holder);
+        }
+
+        function inlineMarkdown(node) {
+            let text = '';
+            node.childNodes.forEach((child) => {
+                if (child.nodeType === 3) {
+                    text += child.nodeValue.replace(/\s+/g, ' ');
+                    return;
+                }
+                if (child.nodeType !== 1) return;
+                const tag = child.tagName.toLowerCase();
+                if (tag === 'br') { text += '\n'; return; }
+                const inner = inlineMarkdown(child).trim();
+                if (tag === 'img') {
+                    const source = child.getAttribute('src') || '';
+                    const alt = child.getAttribute('alt') || '';
+                    text += source ? `![${alt}](${source})` : '';
+                    return;
+                }
+                if (tag === 'a') {
+                    const href = child.getAttribute('href') || '';
+                    text += href ? `[${inner || href}](${href})` : inner;
+                    return;
+                }
+                if (tag === 'strong' || tag === 'b') { text += inner ? `**${inner}**` : ''; return; }
+                if (tag === 'em' || tag === 'i') { text += inner ? `*${inner}*` : ''; return; }
+                if (tag === 'u') { text += inner ? `<u>${inner}</u>` : ''; return; }
+                if (tag === 's' || tag === 'strike' || tag === 'del') { text += inner ? `~~${inner}~~` : ''; return; }
+                if (tag === 'code') { text += inner ? `\`${inner}\`` : ''; return; }
+                text += inner;
+            });
+            return text;
+        }
+
+        function blocksOf(node) {
+            const blocks = [];
+            node.childNodes.forEach((child) => {
+                if (child.nodeType === 3) {
+                    const text = child.nodeValue.replace(/\s+/g, ' ').trim();
+                    if (text) blocks.push(text);
+                    return;
+                }
+                if (child.nodeType !== 1) return;
+                const tag = child.tagName.toLowerCase();
+                if (/^h[1-6]$/.test(tag)) {
+                    const level = Number(tag.charAt(1));
+                    const text = inlineMarkdown(child).trim();
+                    if (text) blocks.push(`${'#'.repeat(level)} ${text}`);
+                    return;
+                }
+                if (tag === 'p') {
+                    const text = inlineMarkdown(child).trim();
+                    if (text) blocks.push(text);
+                    return;
+                }
+                if (tag === 'blockquote') {
+                    const parts = [];
+                    let run = '';
+                    Array.from(child.childNodes).forEach((grand) => {
+                        if (grand.nodeType === 3) {
+                            run += grand.nodeValue.replace(/\s+/g, ' ');
+                            return;
+                        }
+                        if (grand.nodeType !== 1) return;
+                        const grandTag = grand.tagName.toLowerCase();
+                        if (INLINE_TAGS.has(grandTag)) {
+                            run += inlineWrapped(grand).trim();
+                            return;
+                        }
+                        if (run.trim()) {
+                            parts.push(run.trim());
+                            run = '';
+                        }
+                        blocksOf(grand).forEach((part) => parts.push(part));
+                    });
+                    if (run.trim()) parts.push(run.trim());
+                    const inner = parts.join('\n\n');
+                    if (inner) blocks.push(inner.split('\n').map((line) => `> ${line}`).join('\n'));
+                    return;
+                }
+                if (tag === 'ul' || tag === 'ol') {
+                    let index = 0;
+                    const itemLines = [];
+                    Array.from(child.children).forEach((li) => {
+                        if (li.tagName.toLowerCase() !== 'li') return;
+                        index += 1;
+                        const clone = li.cloneNode(true);
+                        const nested = [];
+                        clone.querySelectorAll(':scope > ul, :scope > ol').forEach((list) => {
+                            const listTag = list.tagName.toLowerCase();
+                            let subIndex = 0;
+                            Array.from(list.children).forEach((item) => {
+                                if (item.tagName.toLowerCase() !== 'li') return;
+                                subIndex += 1;
+                                nested.push(`${listTag === 'ol' ? `${subIndex}.` : '-'} ${inlineMarkdown(item).trim()}`);
+                            });
+                            list.remove();
+                        });
+                        const marker = tag === 'ol' ? `${index}.` : '-';
+                        const text = inlineMarkdown(clone).trim();
+                        itemLines.push(text ? `${marker} ${text}` : marker);
+                        nested.forEach((line) => itemLines.push(`    ${line}`));
+                    });
+                    if (itemLines.length) blocks.push(itemLines.join('\n'));
+                    return;
+                }
+                if (tag === 'pre') {
+                    const code = child.textContent.replace(/\s+$/, '');
+                    if (code) blocks.push('```\n' + code + '\n```');
+                    return;
+                }
+                if (tag === 'hr') { blocks.push('---'); return; }
+                if (tag === 'table') {
+                    const rows = Array.from(child.querySelectorAll('tr'));
+                    if (!rows.length) return;
+                    const cellText = (cell) => inlineMarkdown(cell).trim().replace(/\|/g, '\\|').replace(/\n/g, ' ');
+                    const rowLines = rows.map((row) => {
+                        const cells = Array.from(row.children).map(cellText);
+                        return `| ${cells.join(' | ')} |`;
+                    });
+                    const columnCount = Math.max(...rows.map((row) => row.children.length), 1);
+                    blocks.push([rowLines[0], `| ${Array.from({ length: columnCount }, () => '---').join(' | ')} |`]
+                        .concat(rowLines.slice(1)).join('\n'));
+                    return;
+                }
+                if (INLINE_TAGS.has(tag)) {
+                    const text = inlineWrapped(child).trim();
+                    if (text) blocks.push(text);
+                    return;
+                }
+                blocksOf(child).forEach((block) => blocks.push(block));
+            });
+            return blocks;
+        }
+
+        return `${blocksOf(root).join('\n\n')}\n`;
+    }
+
     class Wysing {
         constructor(container, options) {
             const opts = options || {};
@@ -578,6 +729,16 @@
                     <button class="dropdown__item download-menu__item" type="button" role="menuitem" data-download="html">
                         <span class="miller-icon" data-icon="code" aria-hidden="true"></span>
                         <span>HTML</span>
+                        <span class="miller-icon download-menu__loader" data-icon="loader_min" data-animated="true" aria-hidden="true"></span>
+                    </button>
+                    <button class="dropdown__item download-menu__item" type="button" role="menuitem" data-download="markdown">
+                        <span class="miller-icon" data-icon="file_text" aria-hidden="true"></span>
+                        <span>Markdown</span>
+                        <span class="miller-icon download-menu__loader" data-icon="loader_min" data-animated="true" aria-hidden="true"></span>
+                    </button>
+                    <button class="dropdown__item download-menu__item" type="button" role="menuitem" data-download="txt">
+                        <span class="miller-icon" data-icon="file" aria-hidden="true"></span>
+                        <span>TXT</span>
                         <span class="miller-icon download-menu__loader" data-icon="loader_min" data-animated="true" aria-hidden="true"></span>
                     </button>
                 </div>
@@ -1479,6 +1640,8 @@
                 if (format === 'word') this._downloadWord();
                 else if (format === 'pdf') this._downloadPdf();
                 else if (format === 'html') this._downloadHtml();
+                else if (format === 'markdown') this._downloadMarkdown();
+                else if (format === 'txt') this._downloadTxt();
             }, 2000);
         }
 
@@ -2189,6 +2352,29 @@ ${this._el.editor.innerHTML}
         _downloadHtml() {
             this._downloadBlob(`${slugify(this._el.title.value)}.html`, [this._buildExportHtml()], 'text/html;charset=utf-8');
             this._toast('Documento HTML descargado');
+        }
+
+        _downloadMarkdown() {
+            this._downloadBlob(`${slugify(this._el.title.value)}.md`, [htmlToMarkdown(this._el.editor.innerHTML)], 'text/markdown;charset=utf-8');
+            this._toast('Documento Markdown descargado');
+        }
+
+        _buildPlainText() {
+            const holder = document.createElement('div');
+            holder.style.cssText = 'position:fixed;left:-10000px;top:0;';
+            holder.innerHTML = this._el.editor.innerHTML;
+            document.body.appendChild(holder);
+            const text = holder.innerText;
+            holder.remove();
+            return `${text
+                .replace(/[^\S\n]+/g, ' ')
+                .replace(/\n{3,}/g, '\n\n')
+                .trim()}\n`;
+        }
+
+        _downloadTxt() {
+            this._downloadBlob(`${slugify(this._el.title.value)}.txt`, [this._buildPlainText()], 'text/plain;charset=utf-8');
+            this._toast('Documento TXT descargado');
         }
 
         _buildWordHtml() {
