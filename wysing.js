@@ -304,6 +304,15 @@
             try { const v = localStorage.getItem('wysing-confirm-on-clear'); if (v !== null) this._confirmOnClear = v === 'true'; } catch (e) { }
             this._animations = true;
             try { const v = localStorage.getItem('wysing-animations'); if (v !== null) this._animations = v === 'true'; } catch (e) { }
+            this._apa = false;
+            try { this._apa = localStorage.getItem('wysing-apa') === 'true'; } catch (e) { }
+            this._apaMeta = { author: '', institution: '', course: '', teacher: '', date: '' };
+            try {
+                Object.keys(this._apaMeta).forEach((key) => {
+                    const value = localStorage.getItem('wysing-apa-' + key);
+                    if (value) this._apaMeta[key] = value;
+                });
+            } catch (e) { }
             this._changeCallbacks = [];
             this._savedRange = null;
             this._selectedImage = null;
@@ -343,6 +352,8 @@
             this._applyPageWidth(this._pageWidth);
             this._applyEditorFontSize(this._editorFontSize);
             this._applyAnimations(this._animations);
+            this._applyApa(this._apa);
+            this._updateApaSummary();
 
             this._loadDocs();
             if (!this._docs.length) {
@@ -1043,6 +1054,49 @@
         </div>
     </div>
 
+    <div class="modal-layer" data-wysing="apa-modal" hidden>
+        <div class="modal modal--apa" role="dialog" aria-modal="true" aria-labelledby="${uid}-apa-title">
+            <header class="modal__head">
+                <div class="modal__heading">
+                    <span class="modal__icon"><span class="miller-icon" data-icon="ruler" aria-hidden="true"></span></span>
+                    <div>
+                        <h2 id="${uid}-apa-title">Datos de la portada APA</h2>
+                        <p>Aparecen centrados bajo el título en la primera página.</p>
+                    </div>
+                </div>
+                <button class="tool" type="button" data-wysing="apa-close" aria-label="Cerrar">
+                    <span class="miller-icon" data-icon="close" aria-hidden="true"></span>
+                </button>
+            </header>
+            <div class="field">
+                <label for="${uid}-apa-author">Autor</label>
+                <input type="text" id="${uid}-apa-author" data-wysing="apa-author" placeholder="Nombre completo del autor" spellcheck="false">
+            </div>
+            <div class="field">
+                <label for="${uid}-apa-institution">Institución</label>
+                <input type="text" id="${uid}-apa-institution" data-wysing="apa-institution" placeholder="Nombre de la institución" spellcheck="false">
+            </div>
+            <div class="apa-form__row">
+                <div class="field">
+                    <label for="${uid}-apa-course">Curso</label>
+                    <input type="text" id="${uid}-apa-course" data-wysing="apa-course" placeholder="Nombre del curso" spellcheck="false">
+                </div>
+                <div class="field">
+                    <label for="${uid}-apa-teacher">Profesor</label>
+                    <input type="text" id="${uid}-apa-teacher" data-wysing="apa-teacher" placeholder="Profesor/a" spellcheck="false">
+                </div>
+            </div>
+            <div class="field">
+                <label for="${uid}-apa-date">Fecha</label>
+                <input type="text" id="${uid}-apa-date" data-wysing="apa-date" placeholder="Ej. 15 de marzo de 2026" spellcheck="false">
+            </div>
+            <footer class="modal__foot">
+                <button class="btn btn--ghost" type="button" data-wysing="apa-cancel">Cancelar</button>
+                <button class="btn btn--primary" type="button" data-wysing="apa-save">Guardar</button>
+            </footer>
+        </div>
+    </div>
+
     <div class="modal-layer modal-layer--settings" data-wysing="settings-modal" hidden>
         <div class="modal modal--settings" role="dialog" aria-modal="true" aria-labelledby="${uid}-settings-title">
             <header class="modal__head">
@@ -1110,6 +1164,29 @@
                             <button class="settings__segment is-active" type="button" data-width="normal" aria-pressed="true">Normal</button>
                             <button class="settings__segment" type="button" data-width="wide" aria-pressed="false">Amplio</button>
                         </div>
+                    </div>
+                </section>
+                <section class="settings__section" aria-labelledby="${uid}-settings-apa">
+                    <h3 class="settings__title" id="${uid}-settings-apa">Normas APA</h3>
+                    <div class="settings__row">
+                        <div class="settings__copy">
+                            <strong>Activar normas APA</strong>
+                            <span>Aplica Times New Roman, interlineado doble, sangría de primera línea, títulos según nivel APA 7 y la portada con los datos guardados.</span>
+                        </div>
+                        <label class="settings-switch">
+                            <input type="checkbox" data-wysing="settings-apa" aria-label="Activar normas APA">
+                            <span class="settings-switch__track"></span>
+                        </label>
+                    </div>
+                    <div class="settings__row" data-wysing="apa-cover-row">
+                        <div class="settings__copy">
+                            <strong>Datos de la portada</strong>
+                            <span data-wysing="apa-summary">Sin datos todavía</span>
+                        </div>
+                        <button class="settings__link" type="button" data-wysing="apa-edit">
+                            Editar datos
+                            <span class="miller-icon" data-icon="arrow_right" aria-hidden="true"></span>
+                        </button>
                     </div>
                 </section>
                 <section class="settings__section" aria-labelledby="${uid}-settings-behavior">
@@ -1269,6 +1346,14 @@
                 settingsAutosave: $('[data-wysing="settings-autosave"]'),
                 settingsConfirm: $('[data-wysing="settings-confirm"]'),
                 settingsAnimations: $('[data-wysing="settings-animations"]'),
+                settingsApa: $('[data-wysing="settings-apa"]'),
+                apaCoverRow: $('[data-wysing="apa-cover-row"]'),
+                apaEdit: $('[data-wysing="apa-edit"]'),
+                apaSummary: $('[data-wysing="apa-summary"]'),
+                apaModal: $('[data-wysing="apa-modal"]'),
+                apaClose: $('[data-wysing="apa-close"]'),
+                apaCancel: $('[data-wysing="apa-cancel"]'),
+                apaSave: $('[data-wysing="apa-save"]'),
                 printBtn: $('[data-wysing="print-btn"]'),
                 codeBtn: $('[data-wysing="code-btn"]'),
                 codePanel: $('[data-wysing="code-panel"]'),
@@ -1355,6 +1440,74 @@
             try { localStorage.setItem('wysing-animations', String(this._animations)); } catch (e) { }
         }
 
+        _applyApa(enabled) {
+            this._apa = Boolean(enabled);
+            if (this.root) this.root.classList.toggle('is-apa', this._apa);
+            if (this._el && this._el.settingsApa) this._el.settingsApa.checked = this._apa;
+            if (this._el && this._el.apaCoverRow) this._el.apaCoverRow.hidden = !this._apa;
+            this._syncApaTitlePage();
+            try { localStorage.setItem('wysing-apa', String(this._apa)); } catch (e) { }
+        }
+
+        _setApaMeta(key, value) {
+            if (!this._apaMeta || !(key in this._apaMeta)) return;
+            this._apaMeta[key] = String(value || '').trim();
+            try { localStorage.setItem('wysing-apa-' + key, this._apaMeta[key]); } catch (e) { }
+            this._updateApaSummary();
+            if (this._apa) this._syncApaTitlePage();
+        }
+
+        _openApaModal() {
+            if (!this._el.apaModal) return;
+            this._apaReturnToSettings = Boolean(this._el.settingsModal && !this._el.settingsModal.hidden);
+            this._el.apaModal.querySelectorAll('input[data-wysing^="apa-"]').forEach((input) => {
+                input.value = this._apaMeta[input.dataset.wysing.slice(4)] || '';
+            });
+            this._openModal(this._el.apaModal);
+        }
+
+        _saveApaModal() {
+            if (!this._el.apaModal || this._el.apaModal.hidden) return;
+            this._el.apaModal.querySelectorAll('input[data-wysing^="apa-"]').forEach((input) => {
+                this._setApaMeta(input.dataset.wysing.slice(4), input.value);
+            });
+            this._closeModal(this._el.apaModal);
+            this._toast('Datos de la portada guardados');
+        }
+
+        _updateApaSummary() {
+            const summary = this._el && this._el.apaSummary;
+            if (!summary) return;
+            const values = ['author', 'institution', 'course', 'teacher', 'date']
+                .map((key) => (this._apaMeta[key] || '').trim())
+                .filter(Boolean);
+            summary.textContent = values.length
+                ? values.slice(0, 2).join(' \u00b7 ') + (values.length > 2 ? ` \u00b7 +${values.length - 2}` : '')
+                : 'Sin datos todav\u00eda';
+        }
+
+        _syncApaTitlePage() {
+            const editor = this._el && this._el.editor;
+            if (!editor) return;
+            const existing = editor.querySelector('[data-apa-titlepage]');
+            if (!this._apa) {
+                if (existing) existing.remove();
+                return;
+            }
+            const title = (this._el.title.value || '').trim() || 'Documento sin título';
+            const lines = [escapeHtml(title)];
+            ['author', 'institution', 'course', 'teacher', 'date'].forEach((key) => {
+                const value = (this._apaMeta[key] || '').trim();
+                if (value) lines.push(escapeHtml(value));
+            });
+            const block = document.createElement('div');
+            block.className = 'apa-titlepage';
+            block.setAttribute('data-apa-titlepage', '');
+            block.innerHTML = lines.map((line) => line ? `<p>${line}</p>` : '<p><br></p>').join('');
+            if (existing) existing.replaceWith(block);
+            else editor.insertBefore(block, editor.firstChild);
+        }
+
         _setTitleInternal(text) {
             this._el.title.value = text;
         }
@@ -1366,6 +1519,7 @@
             this._prepareLinks();
             this._updateStats();
             this._updateCodeOutput();
+            this._syncApaTitlePage();
         }
 
         _toast(message) {
@@ -1923,6 +2077,14 @@
                 this._closeSettingsModal();
                 return;
             }
+            if (modal === this._el.apaModal) {
+                if (modal.hidden) return;
+                const returnToSettings = this._apaReturnToSettings;
+                this._apaReturnToSettings = false;
+                modal.hidden = true;
+                if (returnToSettings) this._openSettingsModal();
+                return;
+            }
             if (modal === this._el.confirmModal) this._confirmCallback = null;
             modal.hidden = true;
         }
@@ -2288,6 +2450,7 @@
             this._el.editor.innerHTML = '';
             this._el.title.value = nextTitle;
             this._savedRange = null;
+            this._syncApaTitlePage();
             this._updateStats();
             this._saveNow();
             this._el.editor.focus();
@@ -3028,6 +3191,7 @@ ${body}
                 this._syncActiveDocTitle();
                 this._scheduleChange();
                 this._setEditing(true);
+                if (this._apa) this._syncApaTitlePage();
             });
             el.title.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') {
@@ -3051,7 +3215,8 @@ ${body}
             if (el.confirmClose) el.confirmClose.addEventListener('click', () => this._closeModal(el.confirmModal));
             if (el.confirmOk) el.confirmOk.addEventListener('click', () => {
                 const callback = this._confirmCallback;
-                this._confirmCallback = null;
+            this._confirmCallback = null;
+            this._apaReturnToSettings = false;
                 this._closeModal(el.confirmModal);
                 if (typeof callback === 'function') callback();
             });
@@ -3139,6 +3304,19 @@ ${body}
                             this._applyAnimations(el.settingsAnimations.checked);
                         });
                     }
+                    if (el.settingsApa) {
+                        el.settingsApa.addEventListener('change', () => {
+                            const next = el.settingsApa.checked;
+                            this._applyApa(next);
+                            this._toast(next
+                                ? 'Normas APA activadas'
+                                : 'Normas APA desactivadas');
+                        });
+                    }
+                    if (el.apaEdit) el.apaEdit.addEventListener('click', () => this._openApaModal());
+                    if (el.apaClose) el.apaClose.addEventListener('click', () => this._closeModal(el.apaModal));
+                    if (el.apaCancel) el.apaCancel.addEventListener('click', () => this._closeModal(el.apaModal));
+                    if (el.apaSave) el.apaSave.addEventListener('click', () => this._saveApaModal());
                 if (el.settingsReset) {
                     el.settingsReset.addEventListener('click', () => {
                         if (el.settingsTheme) this._applyTheme('dark');
@@ -3160,8 +3338,19 @@ ${body}
                             });
                         });
                         el.settingsModal.querySelectorAll('.settings-switch input').forEach((input) => {
+                            if (input === el.settingsApa) return;
                             input.checked = true;
                         });
+                        if (el.settingsApa) this._applyApa(false);
+                        this.root.querySelectorAll('input[data-wysing^="apa-"]').forEach((input) => {
+                            input.value = '';
+                        });
+                        this._apaMeta = { author: '', institution: '', course: '', teacher: '', date: '' };
+                        ['author', 'institution', 'course', 'teacher', 'date'].forEach((key) => {
+                            try { localStorage.removeItem('wysing-apa-' + key); } catch (e) { }
+                        });
+                        this._updateApaSummary();
+                        this._syncApaTitlePage();
                         if (this._dropdowns && this._dropdowns.density) this._dropdowns.density.value = 'comoda';
                         if (el.settingsRange) {
                             el.settingsRange.value = '16';

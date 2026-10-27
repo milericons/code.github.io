@@ -1175,6 +1175,9 @@
     border: 1px solid var(--chrome-line);
     border-radius: 10px;
 }
+.wysing .settings__row[hidden] {
+    display: none;
+}
 .wysing .settings__copy {
     display: flex;
     flex: 1 1 190px;
@@ -1665,3 +1668,96 @@
 .wysing .docs-list__indicator.is-visible {
     opacity: 1;
 }
+
+/* ----- Normas APA ----- */
+.wysing .settings__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    color: var(--active-ink);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+.wysing .settings__link:hover {
+    opacity: 0.75;
+}
+.wysing .settings__link:focus-visible {
+    outline: 2px solid var(--active-ink);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+.wysing .settings__link .miller-icon {
+    font-size: 13px;
+}
+.wysing .modal--apa {
+    width: min(460px, 100%);
+}
+.wysing .apa-form__row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 12px;
+}
+@media (max-width: 420px) {
+    .wysing .apa-form__row {
+        grid-template-columns: 1fr;
+    }
+}
+.wysing.is-apa .editor,
+.wysing.is-apa .editor * {
+    font-family: "Times New Roman", Times, serif;
+}
+.wysing.is-apa .editor {
+    line-height: 2;
+}
+.wysing.is-apa .editor p {
+    text-indent: 0.5in;
+    margin: 0;
+}
+.wysing.is-apa .editor h1 {
+    text-align: center;
+    font-weight: 700;
+}
+.wysing.is-apa .editor h2 {
+    text-align: left;
+    font-weight: 700;
+}
+.wysing.is-apa .editor h3 {
+    text-align: left;
+    font-weight: 700;
+    font-style: italic;
+}
+.wysing.is-apa .editor h4,
+.wysing.is-apa .editor h5,
+.wysing.is-apa .editor h6 {
+    text-align: left;
+    font-weight: 700;
+    font-style: italic;
+}
+.wysing.is-apa .editor blockquote {
+    margin: 0;
+    padding: 0 0 0 0.5in;
+    border-left: 0;
+    font-style: normal;
+}
+.wysing.is-apa .apa-titlepage {
+    text-align: center;
+    margin: 0 auto;
+    padding-bottom: 3.5em;
+}
+.wysing.is-apa .apa-titlepage p {
+    text-align: center;
+    text-indent: 0;
+    margin: 0;
+}
+.wysing.is-apa .apa-titlepage p:first-child {
+    font-weight: 700;
+    margin-bottom: 1em;
+}
+
