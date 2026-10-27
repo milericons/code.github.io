@@ -2193,7 +2193,7 @@ ${this._el.editor.innerHTML}
 
         _buildWordHtml() {
             const title = escapeHtml(this._el.title.value.trim() || 'Documento sin título');
-            const body = this._el.editor.innerHTML;
+            const body = this._normalizeImagesForWord(this._el.editor.innerHTML);
             return `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40" lang="es">
 <head>
@@ -2241,6 +2241,44 @@ ${body}
 </html>`;
         }
 
+        _normalizeImagesForWord(html) {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = html;
+            const liveImages = Array.from(this._el.editor.querySelectorAll('img'));
+            const cloneImages = Array.from(wrapper.querySelectorAll('img'));
+            const pageMaxPx = 600;
+            cloneImages.forEach((image, index) => {
+                const live = liveImages[index];
+                const naturalWidth = (live && live.naturalWidth) || image.naturalWidth || 0;
+                const naturalHeight = (live && live.naturalHeight) || image.naturalHeight || 0;
+                let targetWidth = null;
+                const styleWidth = image.style.width;
+                if (styleWidth) {
+                    if (styleWidth.indexOf('%') !== -1) {
+                        const percent = parseFloat(styleWidth);
+                        if (!Number.isNaN(percent)) targetWidth = Math.round(pageMaxPx * percent / 100);
+                    } else {
+                        const pixels = parseFloat(styleWidth);
+                        if (!Number.isNaN(pixels)) targetWidth = Math.round(pixels);
+                    }
+                }
+                if (targetWidth === null) {
+                    targetWidth = naturalWidth ? Math.min(naturalWidth, pageMaxPx) : pageMaxPx;
+                }
+                targetWidth = Math.max(1, Math.min(targetWidth, pageMaxPx));
+                let targetHeight = null;
+                if (naturalWidth && naturalHeight) targetHeight = Math.round(targetWidth * naturalHeight / naturalWidth);
+                image.style.removeProperty('width');
+                image.style.removeProperty('height');
+                image.style.removeProperty('max-width');
+                image.setAttribute('width', String(targetWidth));
+                if (targetHeight) image.setAttribute('height', String(targetHeight));
+                image.style.width = `${targetWidth}px`;
+                if (targetHeight) image.style.height = 'auto';
+            });
+            return wrapper.innerHTML;
+        }
+
         _downloadWord() {
             this._downloadBlob(`${slugify(this._el.title.value)}.doc`, ['\ufeff', this._buildWordHtml()], 'application/msword;charset=utf-8');
             this._toast('Documento Word descargado');
@@ -2272,20 +2310,27 @@ ${body}
         _buildPdfElement() {
             const element = document.createElement('div');
             element.className = 'wysing-export';
-            element.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;max-width:none;margin:0;padding:56px;background:#fff;border:0;border-radius:0;box-shadow:none;';
+            element.style.cssText = 'position:relative;left:0;top:0;width:auto;margin:0;padding:56px;background:#fff;border:0;border-radius:0;box-shadow:none;';
             element.innerHTML = this._el.editor.innerHTML;
             return element;
         }
 
         _waitForImages(element) {
-            const pending = Array.from(element.images || [])
-                .filter((image) => !image.complete)
-                .map((image) => new Promise((resolve) => {
-                    const done = () => resolve();
-                    image.addEventListener('load', done, { once: true });
-                    image.addEventListener('error', done, { once: true });
-                    window.setTimeout(done, 3000);
-                }));
+            const pending = Array.from(element.querySelectorAll('img'))
+                .map((image) => {
+                    const waitLoad = image.complete && image.naturalWidth > 0
+                        ? Promise.resolve()
+                        : new Promise((resolve) => {
+                            const done = () => resolve();
+                            image.addEventListener('load', done, { once: true });
+                            image.addEventListener('error', done, { once: true });
+                            window.setTimeout(done, 3000);
+                        });
+                    return waitLoad.then(() => {
+                        if (typeof image.decode === 'function') return image.decode().catch(() => { });
+                        return undefined;
+                    });
+                });
             return Promise.all(pending);
         }
 
@@ -2302,12 +2347,23 @@ ${body}
                 document.head.appendChild(style);
                 element = this._buildPdfElement();
                 document.body.appendChild(element);
+                if (document.fonts && typeof document.fonts.ready === 'object' && document.fonts.ready.then) {
+                    await document.fonts.ready.catch(() => { });
+                }
+                void element.offsetHeight;
                 await this._waitForImages(element);
                 await html2pdf().set({
                     margin: [10, 10, 10, 10],
                     filename: `${slugify(this._el.title.value)}.pdf`,
                     image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
+                    html2canvas: {
+                        scale: 2,
+                        useCORS: true,
+                        backgroundColor: '#ffffff',
+                        logging: false,
+                        scrollX: 0,
+                        scrollY: 0
+                    },
                     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
                     pagebreak: { mode: ['css', 'legacy'] }
                 }).from(element).save();
